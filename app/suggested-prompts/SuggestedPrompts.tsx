@@ -64,7 +64,7 @@ export function SuggestedPrompts({
           ))}
         </div>
       ) : (
-        <div className="-mx-2 flex gap-2 overflow-x-auto px-2 pb-4 md:-mx-4 md:px-4">
+        <div className="-mx-2 flex gap-2 overflow-x-auto px-2 pb-4 md:-mx-4 md:px-4 no-scrollbar">
           {state?.suggestions.map((suggestion, i) => (
             <button
               key={i}
