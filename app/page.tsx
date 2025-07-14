@@ -1,7 +1,7 @@
 "use client";
 
 import Image, { getImageProps } from "next/image";
-import { useRef, useState, useTransition, useEffect } from "react";
+import { useRef, useState, useTransition, useEffect, useMemo } from "react";
 import { generateImage } from "./actions";
 import { ImageUploader } from "./ImageUploader";
 import { Fieldset } from "./Fieldset";
@@ -14,6 +14,17 @@ import { DownloadIcon } from "./components/DownloadIcon";
 import { toast } from "sonner";
 import { SuggestedPrompts } from "./suggested-prompts/SuggestedPrompts";
 import { flushSync } from "react-dom";
+
+// Helper to slugify the prompt for filenames
+function slugifyPrompt(prompt?: string): string {
+  if (!prompt) return "image";
+  // Take first 8 words, join with dashes, remove non-alphanum, limit to 40 chars
+  const words = prompt.split(/\s+/).slice(0, 8);
+  let slug = words.join("-").toLowerCase();
+  slug = slug.replace(/[^a-z0-9\-]/g, "");
+  if (slug.length > 40) slug = slug.slice(0, 40);
+  return slug || "image";
+}
 
 export default function Home() {
   const [images, setImages] = useState<
@@ -34,10 +45,10 @@ export default function Home() {
   >("black-forest-labs/FLUX.1-kontext-dev");
   const [hasApiKey, setHasApiKey] = useState(false);
 
-  const activeImage = images.find((i) => i.url === activeImageUrl);
-  const lastImage = images.at(-1);
-  const latestImageIsActive =
-    activeImage && lastImage && activeImage === lastImage;
+  const activeImage = useMemo(
+    () => images.find((i) => i.url === activeImageUrl),
+    [images, activeImageUrl],
+  );
 
   const adjustedImageDimensions = getAdjustedDimensions(
     imageData.width,
@@ -108,7 +119,9 @@ export default function Home() {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `image.${extension}`;
+    // Use slugified prompt as filename prefix
+    const slug = slugifyPrompt(activeImage.prompt);
+    link.download = `v${activeImage.version}-${slug}.${extension}`;
     document.body.appendChild(link);
     link.click();
 
@@ -250,7 +263,7 @@ export default function Home() {
               </div>
 
               <div className="mt-4">
-                {latestImageIsActive ? (
+                {activeImage ? (
                   <form
                     className="relative"
                     key={activeImageUrl}
@@ -260,7 +273,7 @@ export default function Home() {
                         const prompt = formData.get("prompt") as string;
 
                         const generation = await generateImage({
-                          imageUrl: lastImage.url,
+                          imageUrl: activeImage.url, // Use the currently active image
                           prompt,
                           width: imageData.width,
                           height: imageData.height,
@@ -306,6 +319,7 @@ export default function Home() {
                               e.target.value as typeof selectedModel,
                             )
                           }
+                          disabled={pending}
                           className="w-full appearance-none rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <option value="black-forest-labs/FLUX.1-kontext-dev">
@@ -385,7 +399,7 @@ export default function Home() {
                       </button>
 
                       <SuggestedPrompts
-                        imageUrl={lastImage.url}
+                        imageUrl={activeImage.url}
                         onSelect={(suggestion) => {
                           flushSync(() => {
                             setPrompt(suggestion);
@@ -397,19 +411,7 @@ export default function Home() {
                   </form>
                 ) : (
                   <p className="pb-19 text-base/12 md:pb-25">
-                    <button
-                      onClick={() => {
-                        setActiveImageUrl(images.at(-1)?.url ?? null);
-                        scrollRef.current?.scrollTo({
-                          left: 0,
-                          behavior: "smooth",
-                        });
-                      }}
-                      className="cursor-pointer rounded leading-none text-sky-500 focus-visible:outline focus-visible:outline-offset-4 focus-visible:outline-sky-500"
-                    >
-                      Select the latest version
-                    </button>{" "}
-                    to make more edits.
+                    Select an image to make more edits.
                   </p>
                 )}
               </div>
