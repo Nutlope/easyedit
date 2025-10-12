@@ -7,6 +7,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={"dark"}
       className="toaster group"
+      richColors
       style={
         {
           "--normal-bg": "var(--popover)",

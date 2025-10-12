@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { toast } from "sonner";
 
 const isValidKeyFormat = (key: string) => /^[a-zA-Z0-9]{64,}$/.test(key);
 
@@ -51,7 +52,25 @@ export function UserAPIKey() {
       localStorage.removeItem("togetherApiKey");
       setIsValid(true);
     }
-  }, [userAPIKey]);
+  };
+
+  const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setUserAPIKey(value);
+
+    if (value.length === 0) {
+      sessionStorage.removeItem("togetherApiKey");
+      return;
+    }
+
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    debounceTimeoutRef.current = setTimeout(() => {
+      validateAndSaveApiKey(value);
+    }, 500);
+  };
 
   return (
     <div className="flex flex-col gap-2">
