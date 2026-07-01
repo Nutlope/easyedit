@@ -127,7 +127,7 @@ export default function RootLayout({
             </a>{" "}
             on{" "}
             <a
-              href="https://togetherai.link"
+              href="https://togetherai.link/?utm_source=easyedit&utm_medium=referral&utm_campaign=example-app"
               target="_blank"
               className="text-gray-200 underline underline-offset-2"
             >
