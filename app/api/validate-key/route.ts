@@ -1,4 +1,5 @@
 import { getTogether } from "@/lib/get-together";
+import { API_KEY_VALIDATION_MODEL } from "@/lib/model-config";
 
 export async function POST(request: Request) {
   try {
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
     try {
       // Make a simple chat completion call to validate the API key
       await together.chat.completions.create({
-        model: "moonshotai/Kimi-K2.5",
+        model: API_KEY_VALIDATION_MODEL,
         messages: [
           {
             role: "user",

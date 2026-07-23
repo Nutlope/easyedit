@@ -12,11 +12,11 @@
 - [Flux 2](https://www.together.ai/blog/flux-2-multi-reference-image-generation-now-available-on-together-ai) from BFL for the image model
 - [Together AI](https://togetherai.link) for inference
 - Next.js app router with Tailwind
-- Helicone for observability
+- [Braintrust](https://www.braintrust.dev/) for image-edit tracing and observability
 - Plausible for website analytics
 
 ## Cloning & running
 
 1. Clone the repo: `git clone https://github.com/Nutlope/easyedit`
-2. Create a `.env.local` file and add your [Together AI API key](https://togetherai.link): `TOGETHER_API_KEY=`
+2. Create a `.env.local` file and add your [Together AI API key](https://togetherai.link): `TOGETHER_API_KEY=`. To enable tracing, also add `BRAINTRUST_API_KEY=` and `BRAINTRUST_PROJECT=easyedit`.
 3. Run `npm install` and `npm run dev` to install dependencies and run locally

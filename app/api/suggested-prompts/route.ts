@@ -1,4 +1,5 @@
 import { getTogether } from "@/lib/get-together";
+import { SUGGESTED_PROMPTS_MODEL } from "@/lib/model-config";
 import { getIPAddress, getRateLimiter } from "@/lib/rate-limiter";
 import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
@@ -37,7 +38,7 @@ async function fetchAndCompressImage(imageUrl: string): Promise<string> {
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const imageUrl = searchParams.get("imageUrl");
-  const model = searchParams.get("model") || "Qwen/Qwen3.5-9B";
+  const model = searchParams.get("model") || SUGGESTED_PROMPTS_MODEL;
 
   if (!imageUrl) {
     return NextResponse.json(
@@ -73,6 +74,7 @@ export async function GET(request: NextRequest) {
       model,
       max_tokens: 200,
       temperature: 0.6,
+      // @ts-expect-error Together SDK 0.16 does not expose this supported field.
       reasoning: { enabled: false },
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
@@ -85,7 +87,7 @@ export async function GET(request: NextRequest) {
         },
       ],
       response_format: { type: "json_object", schema: jsonSchema },
-    } as any);
+    });
 
     if (!response?.choices?.[0]?.message?.content) {
       return NextResponse.json({ suggestions: [] });

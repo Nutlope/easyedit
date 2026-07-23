@@ -1,16 +1,15 @@
+import { SUGGESTED_PROMPTS_BENCHMARK_MODELS } from "../lib/model-config";
+
 const API_KEY = process.env.TOGETHER_API_KEY;
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 const IMAGE_URL = process.env.IMAGE_URL || "https://picsum.photos/200/300";
 
-const DEFAULT_MODELS = [
-  "moonshotai/Kimi-K2.5",
-  "Qwen/Qwen3.5-9B",
-  "Qwen/Qwen3.5-397B-A17B",
-];
-
 const RUNS = Number(process.env.RUNS || 3);
 
-const models = process.argv.length > 2 ? process.argv.slice(2) : DEFAULT_MODELS;
+const models =
+  process.argv.length > 2
+    ? process.argv.slice(2)
+    : SUGGESTED_PROMPTS_BENCHMARK_MODELS;
 
 if (!API_KEY) {
   console.error("TOGETHER_API_KEY env var is required");
@@ -37,7 +36,7 @@ async function bench(model: string, run: number): Promise<BenchResult> {
   });
   const elapsed = (Date.now() - start) / 1000;
   const status = res.status;
-  let body: any;
+  let body: { suggestions?: unknown };
   try {
     body = await res.json();
   } catch {
@@ -53,12 +52,13 @@ async function bench(model: string, run: number): Promise<BenchResult> {
     };
   }
 
-  const suggestions: string[] = body.suggestions ?? [];
+  const rawSuggestions = body.suggestions;
   const validJson = true;
   const validSchema =
-    Array.isArray(suggestions) &&
-    suggestions.length === 3 &&
-    suggestions.every((s) => typeof s === "string" && s.length > 0);
+    Array.isArray(rawSuggestions) &&
+    rawSuggestions.length === 3 &&
+    rawSuggestions.every((s) => typeof s === "string" && s.length > 0);
+  const suggestions = validSchema ? (rawSuggestions as string[]) : [];
 
   return {
     model,

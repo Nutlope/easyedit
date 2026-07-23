@@ -1,5 +1,14 @@
+allowBuilds:
+  "@tailwindcss/oxide": true
+  braintrust: true
+  esbuild: true
+  lzo: true
+  sharp: true
+  unrs-resolver: true
 onlyBuiltDependencies:
-  - '@tailwindcss/oxide'
+  - "@tailwindcss/oxide"
+  - braintrust
+  - esbuild
   - lzo
   - sharp
   - unrs-resolver
