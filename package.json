@@ -6,7 +6,6 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint .",
     "test": "tsx --test 'lib/**/*.test.ts'",
     "verify:braintrust": "tsx scripts/verify-braintrust-trace.ts",
     "verify:models": "tsx scripts/verify-model-catalog.ts"
@@ -39,8 +38,6 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "^16.2.6",
     "prettier": "^3.5.3",
     "prettier-plugin-tailwindcss": "^0.6.11",
     "tailwindcss": "^4",
