@@ -1,7 +1,7 @@
 import { getAdjustedDimensions } from "../lib/get-adjusted-dimentions";
 import {
+  buildImageEditRequestBody,
   IMAGE_EDIT_MODELS,
-  IMAGE_EDIT_MODEL_SPEC,
   type ImageEditModel,
 } from "../lib/model-config";
 
@@ -37,15 +37,13 @@ type Run = {
 
 async function editOnce(model: ImageEditModel, run: number): Promise<Run> {
   const dims = getAdjustedDimensions(SOURCE_WIDTH, SOURCE_HEIGHT, model);
-  const param = IMAGE_EDIT_MODEL_SPEC[model].param;
-  const body: Record<string, unknown> = {
+  const body = buildImageEditRequestBody({
     model,
     prompt: PROMPT,
     width: dims.width,
     height: dims.height,
-  };
-  if (param === "image_url") body.image_url = IMAGE_URL;
-  else body.reference_images = [IMAGE_URL];
+    imageUrl: IMAGE_URL,
+  });
 
   const start = Date.now();
   let status = 0;

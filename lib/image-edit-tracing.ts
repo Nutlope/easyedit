@@ -90,6 +90,7 @@ export function buildImageEditTraceSuccess(
     },
     metadata: {
       success: true,
+      phase: "provider",
       cost: {
         currency: "USD",
         pricingUnit: "image",

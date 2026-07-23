@@ -5,7 +5,10 @@ import {
   buildImageEditTraceSuccess,
   estimateImageEditCost,
 } from "./image-edit-tracing";
-import { serializeBraintrustError } from "./trace-safety";
+import {
+  extractDataUrlBase64,
+  serializeBraintrustError,
+} from "./trace-safety";
 
 test("records safe image-edit inputs without source image data or API keys", () => {
   const trace = buildImageEditTraceStart({
@@ -121,5 +124,38 @@ test("redacts BYOK secrets and source image URLs from provider errors", () => {
 
   assert.equal(serialized.includes(secret), false);
   assert.equal(serialized.includes(sourceImage), false);
+  assert.equal(serialized.includes("[REDACTED]"), true);
+});
+
+test("records a phase on the success event to match the error shape", () => {
+  const trace = buildImageEditTraceSuccess(
+    { data: [{ url: "https://api.together.ai/generated/output.png" }] },
+    "black-forest-labs/FLUX.2-flex",
+    100,
+    90,
+  );
+
+  assert.equal(trace.metadata.phase, "provider");
+});
+
+test("extracts the base64 payload from a data URL for redaction", () => {
+  const base64 = "AAABBBCCC123+/==";
+  assert.equal(extractDataUrlBase64(`data:image/png;base64,${base64}`), base64);
+  // Plain https URLs and empty input carry no base64 to redact.
+  assert.equal(extractDataUrlBase64("https://example.com/photo.png"), undefined);
+  assert.equal(extractDataUrlBase64(null), undefined);
+  assert.equal(extractDataUrlBase64(""), undefined);
+});
+
+test("redacts the base64 payload when a provider error echoes it alone", () => {
+  const base64 = "ZGF0YS11cmwtYmFzZTY0LXBheWxvYWQ=";
+  const dataUrl = `data:image/jpeg;base64,${base64}`;
+  // A provider error that echoes only the base64 bytes (no data: prefix).
+  const error = new Error(`Rejected payload ${base64}`);
+  const serialized = JSON.stringify(
+    serializeBraintrustError(error, [dataUrl, extractDataUrlBase64(dataUrl)]),
+  );
+
+  assert.equal(serialized.includes(base64), false);
   assert.equal(serialized.includes("[REDACTED]"), true);
 });

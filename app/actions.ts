@@ -13,15 +13,14 @@ import {
   buildImageEditTraceSuccess,
 } from "@/lib/image-edit-tracing";
 import {
+  buildImageEditRequestBody,
   IMAGE_EDIT_MODELS,
-  IMAGE_EDIT_MODEL_SPEC,
 } from "@/lib/model-config";
+import { enforceRateLimit, getRateLimiter } from "@/lib/rate-limiter";
 import {
-  getIPAddress,
-  getRateLimiter,
-  isLocalRequest,
-} from "@/lib/rate-limiter";
-import { serializeBraintrustError } from "@/lib/trace-safety";
+  extractDataUrlBase64,
+  serializeBraintrustError,
+} from "@/lib/trace-safety";
 import { z } from "zod";
 
 const ratelimit = getRateLimiter();
@@ -61,7 +60,6 @@ export async function generateImage(
 
   const { imageUrl, prompt, width, height, userAPIKey, model } = input;
   const adjustedDimensions = getAdjustedDimensions(width, height, model);
-  const editParam = IMAGE_EDIT_MODEL_SPEC[model].param;
   const startedAt = performance.now();
   const span = startBraintrustSpan({
     name: "easyedit.edit-image",
@@ -80,44 +78,31 @@ export async function generateImage(
   let providerStartedAt: number | undefined;
 
   try {
-    if (ratelimit && !userAPIKey) {
-      // Skip the rate limit when running locally (see isLocalRequest) so
-      // testing on localhost is never throttled. Production keeps the limit.
-      const isLocal = await isLocalRequest();
-      if (!isLocal) {
-        const ipAddress = await getIPAddress();
-
-        const { success } = await ratelimit.limit(ipAddress);
-        if (!success) {
-          logBraintrustEvent(span, {
-            error: { message: "Image edit rate limit exceeded" },
-            metadata: { success: false, phase },
-            metrics: { duration_ms: performance.now() - startedAt },
-          });
-          return {
-            success: false,
-            error:
-              "No requests left. Please add your own API key or try again in 24h.",
-          };
-        }
-      }
+    if ((await enforceRateLimit(ratelimit, userAPIKey)) === "limited") {
+      logBraintrustEvent(span, {
+        error: { message: "Image edit rate limit exceeded" },
+        metadata: { success: false, phase },
+        metrics: { duration_ms: performance.now() - startedAt },
+      });
+      return {
+        success: false,
+        error:
+          "No requests left. Please add your own API key or try again in 24h.",
+      };
     }
 
     phase = "provider";
     const together = getTogether(userAPIKey);
     providerStartedAt = performance.now();
-    const response = await together.images.create({
-      model,
-      prompt,
-      width: adjustedDimensions.width,
-      height: adjustedDimensions.height,
-      // FLUX.2 accepts a single `image_url`; Seedream-5.0-lite requires
-      // `reference_images` instead. together-ai 0.16 does not type
-      // `reference_images`, so the body is cast to the SDK param.
-      ...(editParam === "reference_images"
-        ? { reference_images: [imageUrl] }
-        : { image_url: imageUrl }),
-    } as Parameters<typeof together.images.create>[0]);
+    const response = await together.images.create(
+      buildImageEditRequestBody({
+        model,
+        prompt,
+        width: adjustedDimensions.width,
+        height: adjustedDimensions.height,
+        imageUrl,
+      }) as unknown as Parameters<typeof together.images.create>[0],
+    );
     const url = response.data?.[0]?.url;
 
     if (!url) {
@@ -146,6 +131,7 @@ export async function generateImage(
     const serializedError = serializeBraintrustError(error, [
       userAPIKey,
       imageUrl,
+      extractDataUrlBase64(imageUrl),
     ]);
     logBraintrustEvent(span, {
       error: serializedError,

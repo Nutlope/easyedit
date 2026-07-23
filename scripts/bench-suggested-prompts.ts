@@ -17,8 +17,10 @@
 //   TIMEOUT_MS        Per-call timeout (default 90000).
 
 import { SUGGESTED_PROMPTS_BENCHMARK_MODELS } from "../lib/model-config";
-import sharp from "sharp";
-import { z } from "zod/v4";
+import {
+  buildSuggestedPromptsRequestBody,
+  fetchAndCompressImage,
+} from "../lib/suggested-prompts";
 
 const API_KEY = process.env.TOGETHER_API_KEY;
 const IMAGE_URL = process.env.IMAGE_URL || "https://picsum.photos/200/300";
@@ -42,11 +44,6 @@ if (!API_KEY) {
   process.exit(1);
 }
 
-// Mirrors app/api/suggested-prompts/route.ts verbatim.
-const SYSTEM_PROMPT =
-  'Suggest exactly 3 simple image edits. Output ONLY a JSON array of 3 short strings (5-8 words each). Example: ["edit 1","edit 2","edit 3"]';
-const jsonSchema = z.toJSONSchema(z.array(z.string()));
-
 interface Usage {
   prompt_tokens?: number;
   completion_tokens?: number;
@@ -61,19 +58,6 @@ interface BenchResult {
   error: string | null;
   suggestions: string[];
   usage: Usage | null;
-}
-
-async function fetchAndCompressImage(url: string): Promise<string> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch image: ${response.status}`);
-  }
-  const buffer = Buffer.from(await response.arrayBuffer());
-  const compressed = await sharp(buffer)
-    .resize(300, 300, { fit: "inside", withoutEnlargement: true })
-    .jpeg({ quality: 80, progressive: true })
-    .toBuffer();
-  return `data:image/jpeg;base64,${compressed.toString("base64")}`;
 }
 
 function isValidSuggestions(value: unknown): value is string[] {
@@ -118,26 +102,9 @@ async function probe(model: string, run: number, dataUrl: string): Promise<Bench
         Authorization: `Bearer ${API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model,
-        max_tokens: 200,
-        temperature: 0.6,
-        // Reasoning is disabled for every model, matching the route. Non-reasoning
-        // models ignore the field; reasoning models skip the thinking step so the
-        // measured latency reflects suggestion generation only.
-        reasoning: { enabled: false },
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: [
-              { type: "image_url", image_url: { url: dataUrl } },
-              { type: "text", text: "Suggest 3 edits." },
-            ],
-          },
-        ],
-        response_format: { type: "json_object", schema: jsonSchema },
-      }),
+      body: JSON.stringify(
+        buildSuggestedPromptsRequestBody({ model, imageUrl: dataUrl }),
+      ),
     });
     status = response.status;
     const body = await response.json();

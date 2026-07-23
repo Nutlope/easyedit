@@ -18,6 +18,34 @@ export function getRateLimiter() {
   }
   return ratelimit;
 }
+
+/**
+ * Enforce the rate limit for a non-BYOK request, bypassing local traffic.
+ *
+ * Returns `"limited"` when the caller is over quota (respond 429-style) and
+ * `"ok"` otherwise. BYOK requests pass straight through (`"ok"`) — they bill to
+ * the caller's own Together account, so the shared quota never applies. When no
+ * limiter is configured (Upstash unset) everything is `"ok"`.
+ *
+ * Production keeps the limit; loopback hosts (localhost, 127.0.0.1, …) are
+ * bypassed via `isLocalRequest` so local testing is never throttled. The optional
+ * `keySuffix` namespaces the limit key per endpoint (e.g. `"-suggestions"`) so a
+ * caller doesn't exhaust the edit quota with suggestion calls.
+ */
+export async function enforceRateLimit(
+  ratelimit: Ratelimit | undefined,
+  userAPIKey: string | null,
+  keySuffix = "",
+): Promise<"ok" | "limited"> {
+  if (!ratelimit || userAPIKey) return "ok";
+
+  if (await isLocalRequest()) return "ok";
+
+  const ipAddress = await getIPAddress();
+  const key = keySuffix ? `${ipAddress}-${keySuffix}` : ipAddress;
+  const { success } = await ratelimit.limit(key);
+  return success ? "ok" : "limited";
+}
 export async function getIPAddress() {
   const FALLBACK_IP_ADDRESS = "0.0.0.0";
   const headersList = await headers();
