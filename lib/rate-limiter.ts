@@ -29,3 +29,22 @@ export async function getIPAddress() {
 
   return headersList.get("x-real-ip") ?? FALLBACK_IP_ADDRESS;
 }
+
+/**
+ * Returns true when the incoming request is to a loopback address
+ * (localhost, 127.0.0.1, 0.0.0.0, [::1]). We skip the rate limiter for these so
+ * local testing never hits "No requests left". Production deployments serve a
+ * real domain in the `host` header, so this never matches there — the limiter
+ * stays fully enforced in production. Uses `host` (not `x-forwarded-host`, which
+ * a client could spoof) to keep the bypass safe.
+ */
+export async function isLocalRequest(): Promise<boolean> {
+  const headersList = await headers();
+  const host = headersList.get("host") ?? "";
+  return (
+    host.startsWith("localhost") ||
+    host.startsWith("127.0.0.1") ||
+    host.startsWith("0.0.0.0") ||
+    host.startsWith("[::1]")
+  );
+}

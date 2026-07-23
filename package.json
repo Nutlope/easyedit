@@ -8,7 +8,8 @@
     "start": "next start",
     "test": "tsx --test 'lib/**/*.test.ts'",
     "verify:braintrust": "tsx scripts/verify-braintrust-trace.ts",
-    "verify:models": "tsx scripts/verify-model-catalog.ts"
+    "verify:models": "tsx scripts/verify-model-catalog.ts",
+    "bench:suggestions": "tsx scripts/bench-suggested-prompts.ts"
   },
   "dependencies": {
     "@fal-ai/client": "^1.5.0",

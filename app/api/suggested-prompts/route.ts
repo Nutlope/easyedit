@@ -1,6 +1,10 @@
 import { getTogether } from "@/lib/get-together";
 import { SUGGESTED_PROMPTS_MODEL } from "@/lib/model-config";
-import { getIPAddress, getRateLimiter } from "@/lib/rate-limiter";
+import {
+  getIPAddress,
+  getRateLimiter,
+  isLocalRequest,
+} from "@/lib/rate-limiter";
 import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
 import { z } from "zod/v4";
@@ -50,17 +54,22 @@ export async function GET(request: NextRequest) {
   const userAPIKey = request.headers.get("x-api-key") || null;
 
   if (ratelimit && !userAPIKey) {
-    const ipAddress = await getIPAddress();
+    // Skip the rate limit when running locally (see isLocalRequest) so
+    // testing on localhost is never throttled. Production keeps the limit.
+    const isLocal = await isLocalRequest();
+    if (!isLocal) {
+      const ipAddress = await getIPAddress();
 
-    const { success } = await ratelimit.limit(`${ipAddress}-suggestions`);
-    if (!success) {
-      return NextResponse.json(
-        { suggestions: [] },
-        {
-          status: 429,
-          headers: { "Cache-Control": "no-store" },
-        },
-      );
+      const { success } = await ratelimit.limit(`${ipAddress}-suggestions`);
+      if (!success) {
+        return NextResponse.json(
+          { suggestions: [] },
+          {
+            status: 429,
+            headers: { "Cache-Control": "no-store" },
+          },
+        );
+      }
     }
   }
 
