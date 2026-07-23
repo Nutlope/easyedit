@@ -14,6 +14,7 @@ import { DownloadIcon } from "./components/DownloadIcon";
 import { toast } from "sonner";
 import { SuggestedPrompts } from "./suggested-prompts/SuggestedPrompts";
 import { flushSync } from "react-dom";
+import type { ImageEditModel } from "@/lib/model-config";
 
 // Helper to slugify the prompt for filenames
 function slugifyPrompt(prompt?: string): string {
@@ -39,9 +40,9 @@ export default function Home() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [prompt, setPrompt] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
-  const [selectedModel, setSelectedModel] = useState<
-    "black-forest-labs/FLUX.2-flex" | "black-forest-labs/FLUX.2-pro"
-  >("black-forest-labs/FLUX.2-flex");
+  const [selectedModel, setSelectedModel] = useState<ImageEditModel>(
+    "black-forest-labs/FLUX.2-flex",
+  );
   const [hasApiKey, setHasApiKey] = useState(false);
 
   const activeImage = useMemo(
@@ -52,6 +53,7 @@ export default function Home() {
   const adjustedImageDimensions = getAdjustedDimensions(
     imageData.width,
     imageData.height,
+    selectedModel,
   );
 
   useEffect(() => {
@@ -330,6 +332,9 @@ export default function Home() {
                           >
                             Flux 2 Pro{" "}
                             {!hasApiKey && "(Together API key required)"}
+                          </option>
+                          <option value="ByteDance/Seedream-5.0-lite">
+                            Seedream 5.0 Lite (slower, ~30s)
                           </option>
                         </select>
                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">

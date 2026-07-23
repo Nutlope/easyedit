@@ -1,4 +1,6 @@
+import { logBraintrustFailure } from "@/lib/braintrust";
 import { getTogether } from "@/lib/get-together";
+import { API_KEY_VALIDATION_MODEL } from "@/lib/model-config";
 
 export async function POST(request: Request) {
   try {
@@ -19,7 +21,7 @@ export async function POST(request: Request) {
     try {
       // Make a simple chat completion call to validate the API key
       await together.chat.completions.create({
-        model: "moonshotai/Kimi-K2.5",
+        model: API_KEY_VALIDATION_MODEL,
         messages: [
           {
             role: "user",
@@ -38,6 +40,26 @@ export async function POST(request: Request) {
       );
     } catch (error) {
       console.error("API key validation failed:", error);
+
+      // Record the validation failure so the key-check early return doesn't
+      // disappear from Braintrust observability. The user's API key is passed
+      // as a sensitive value so any accidental echo is redacted; the event
+      // itself carries only route/phase/success — never the key or messages.
+      await logBraintrustFailure(
+        {
+          name: "easyedit.validate-key",
+          type: "llm",
+          event: {
+            metadata: {
+              route: "validate-key",
+              phase: "key-validation",
+              success: false,
+            },
+          },
+        },
+        error,
+        [apiKey],
+      );
 
       const errorCode =
         typeof error === "object" && error !== null && "code" in error

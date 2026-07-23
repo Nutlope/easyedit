@@ -1,43 +1,22 @@
 import { getTogether } from "@/lib/get-together";
-import { getIPAddress, getRateLimiter } from "@/lib/rate-limiter";
+import { SUGGESTED_PROMPTS_MODEL } from "@/lib/model-config";
+import { enforceRateLimit, getRateLimiter } from "@/lib/rate-limiter";
+import {
+  buildSuggestedPromptsRequestBody,
+  fetchAndCompressImage,
+  suggestedPromptsSchema,
+} from "@/lib/suggested-prompts";
+import type Together from "together-ai";
 import { NextRequest, NextResponse } from "next/server";
-import sharp from "sharp";
-import { z } from "zod/v4";
-
-const schema = z.array(z.string());
-const jsonSchema = z.toJSONSchema(schema);
 
 export const revalidate = 86400;
 
 const ratelimit = getRateLimiter();
 
-const SYSTEM_PROMPT = `Suggest exactly 3 simple image edits. Output ONLY a JSON array of 3 short strings (5-8 words each). Example: ["edit 1","edit 2","edit 3"]`;
-
-async function fetchAndCompressImage(imageUrl: string): Promise<string> {
-  // Fetch image server-side (no CORS issues)
-  const response = await fetch(imageUrl);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch image: ${response.status}`);
-  }
-
-  const arrayBuffer = await response.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-
-  // Use sharp to resize and compress
-  const compressedBuffer = await sharp(buffer)
-    .resize(300, 300, { fit: "inside", withoutEnlargement: true })
-    .jpeg({ quality: 80, progressive: true })
-    .toBuffer();
-
-  // Convert to base64 data URL
-  const base64 = compressedBuffer.toString("base64");
-  return `data:image/jpeg;base64,${base64}`;
-}
-
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const imageUrl = searchParams.get("imageUrl");
-  const model = searchParams.get("model") || "Qwen/Qwen3.5-9B";
+  const model = searchParams.get("model") || SUGGESTED_PROMPTS_MODEL;
 
   if (!imageUrl) {
     return NextResponse.json(
@@ -48,19 +27,19 @@ export async function GET(request: NextRequest) {
 
   const userAPIKey = request.headers.get("x-api-key") || null;
 
-  if (ratelimit && !userAPIKey) {
-    const ipAddress = await getIPAddress();
-
-    const { success } = await ratelimit.limit(`${ipAddress}-suggestions`);
-    if (!success) {
-      return NextResponse.json(
-        { suggestions: [] },
-        {
-          status: 429,
-          headers: { "Cache-Control": "no-store" },
-        },
-      );
-    }
+  // Rate-limited requests are expected (a user exhausting their free quota),
+  // not a system error — skip Braintrust tracing so quota rejections don't
+  // pollute observability with noise.
+  if (
+    (await enforceRateLimit(ratelimit, userAPIKey, "suggestions")) === "limited"
+  ) {
+    return NextResponse.json(
+      { suggestions: [] },
+      {
+        status: 429,
+        headers: { "Cache-Control": "no-store" },
+      },
+    );
   }
 
   const together = getTogether(userAPIKey);
@@ -69,30 +48,19 @@ export async function GET(request: NextRequest) {
     // Compress image server-side to reduce tokens
     const compressedImageUrl = await fetchAndCompressImage(imageUrl);
 
-    const response = await together.chat.completions.create({
-      model,
-      max_tokens: 200,
-      temperature: 0.6,
-      reasoning: { enabled: false },
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: [
-            { type: "image_url", image_url: { url: compressedImageUrl } },
-            { type: "text", text: "Suggest 3 edits." },
-          ],
-        },
-      ],
-      response_format: { type: "json_object", schema: jsonSchema },
-    } as any);
+    const response = await together.chat.completions.create(
+      buildSuggestedPromptsRequestBody({
+        model,
+        imageUrl: compressedImageUrl,
+      }) as unknown as Together.Chat.CompletionCreateParamsNonStreaming,
+    );
 
     if (!response?.choices?.[0]?.message?.content) {
       return NextResponse.json({ suggestions: [] });
     }
 
     const json = JSON.parse(response.choices[0].message.content);
-    const result = schema.safeParse(json);
+    const result = suggestedPromptsSchema.safeParse(json);
 
     if (result.error) {
       return NextResponse.json({ suggestions: [] });
