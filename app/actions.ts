@@ -59,6 +59,18 @@ export async function generateImage(
   }
 
   const { imageUrl, prompt, width, height, userAPIKey, model } = input;
+
+  // Rate-limited requests are expected — a user simply exhausting their free
+  // quota — not a system error, so skip Braintrust tracing entirely. Logging
+  // them just pollutes observability with quota-rejection noise.
+  if ((await enforceRateLimit(ratelimit, userAPIKey)) === "limited") {
+    return {
+      success: false,
+      error:
+        "No requests left. Please add your own API key or try again in 24h.",
+    };
+  }
+
   const adjustedDimensions = getAdjustedDimensions(width, height, model);
   const startedAt = performance.now();
   const span = startBraintrustSpan({
@@ -74,24 +86,10 @@ export async function generateImage(
       byok: Boolean(userAPIKey),
     }),
   });
-  let phase = "rate-limit";
+  let phase = "provider";
   let providerStartedAt: number | undefined;
 
   try {
-    if ((await enforceRateLimit(ratelimit, userAPIKey)) === "limited") {
-      logBraintrustEvent(span, {
-        error: { message: "Image edit rate limit exceeded" },
-        metadata: { success: false, phase },
-        metrics: { duration_ms: performance.now() - startedAt },
-      });
-      return {
-        success: false,
-        error:
-          "No requests left. Please add your own API key or try again in 24h.",
-      };
-    }
-
-    phase = "provider";
     const together = getTogether(userAPIKey);
     providerStartedAt = performance.now();
     const response = await together.images.create(

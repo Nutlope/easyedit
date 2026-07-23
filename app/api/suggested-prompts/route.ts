@@ -1,4 +1,3 @@
-import { logBraintrustFailure } from "@/lib/braintrust";
 import { getTogether } from "@/lib/get-together";
 import { SUGGESTED_PROMPTS_MODEL } from "@/lib/model-config";
 import { enforceRateLimit, getRateLimiter } from "@/lib/rate-limiter";
@@ -28,26 +27,12 @@ export async function GET(request: NextRequest) {
 
   const userAPIKey = request.headers.get("x-api-key") || null;
 
+  // Rate-limited requests are expected (a user exhausting their free quota),
+  // not a system error — skip Braintrust tracing so quota rejections don't
+  // pollute observability with noise.
   if (
     (await enforceRateLimit(ratelimit, userAPIKey, "suggestions")) === "limited"
   ) {
-    // Record the rate-limit failure so this early return doesn't disappear from
-    // Braintrust observability. Logged before the source image is fetched, so
-    // no image data or API key is ever present in the trace.
-    await logBraintrustFailure(
-      {
-        name: "easyedit.suggested-prompts",
-        type: "llm",
-        event: {
-          metadata: {
-            route: "suggested-prompts",
-            phase: "rate-limit",
-            success: false,
-          },
-        },
-      },
-      new Error("Suggested prompts rate limit exceeded"),
-    );
     return NextResponse.json(
       { suggestions: [] },
       {
