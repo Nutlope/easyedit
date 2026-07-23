@@ -46,7 +46,7 @@ export async function enforceRateLimit(
   const { success } = await ratelimit.limit(key);
   return success ? "ok" : "limited";
 }
-export async function getIPAddress() {
+async function getIPAddress() {
   const FALLBACK_IP_ADDRESS = "0.0.0.0";
   const headersList = await headers();
   const forwardedFor = headersList.get("x-forwarded-for");
@@ -66,7 +66,7 @@ export async function getIPAddress() {
  * stays fully enforced in production. Uses `host` (not `x-forwarded-host`, which
  * a client could spoof) to keep the bypass safe.
  */
-export async function isLocalRequest(): Promise<boolean> {
+async function isLocalRequest(): Promise<boolean> {
   const headersList = await headers();
   const host = headersList.get("host") ?? "";
   return (

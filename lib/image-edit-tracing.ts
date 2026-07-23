@@ -103,7 +103,7 @@ export function buildImageEditTraceSuccess(
   };
 }
 
-export function sanitizeUsageMetadata(value: unknown): unknown {
+function sanitizeUsageMetadata(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map(sanitizeUsageMetadata);
   }

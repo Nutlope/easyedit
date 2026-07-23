@@ -12,7 +12,6 @@ export {
   IMAGE_EDIT_MODEL_SPEC,
   buildImageEditRequestBody,
   type ImageEditModel,
-  type ImageEditParam,
   type ImageEditDimensionSpec,
 } from "./image-edit-models";
 export {

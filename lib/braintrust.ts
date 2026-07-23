@@ -11,7 +11,7 @@ import { serializeBraintrustError } from "@/lib/trace-safety";
 
 let logger: Logger<true> | null | undefined;
 
-export function getBraintrustLogger() {
+function getBraintrustLogger() {
   if (!process.env.BRAINTRUST_API_KEY) return undefined;
 
   if (logger !== undefined) {

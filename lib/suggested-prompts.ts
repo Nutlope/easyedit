@@ -8,13 +8,13 @@
 import sharp from "sharp";
 import { z } from "zod/v4";
 
-export const SUGGESTED_PROMPTS_SYSTEM_PROMPT = `Suggest exactly 3 simple image edits. Output ONLY a JSON array of 3 short strings (5-8 words each). Example: ["edit 1","edit 2","edit 3"]`;
+const SUGGESTED_PROMPTS_SYSTEM_PROMPT = `Suggest exactly 3 simple image edits. Output ONLY a JSON array of 3 short strings (5-8 words each). Example: ["edit 1","edit 2","edit 3"]`;
 
 /** Zod schema for the 3-string suggestion array (used to validate the model output). */
 export const suggestedPromptsSchema = z.array(z.string());
 
 /** JSON-schema sent to the model via `response_format` so output is parseable. */
-export const suggestedPromptsJsonSchema = z.toJSONSchema(suggestedPromptsSchema);
+const suggestedPromptsJsonSchema = z.toJSONSchema(suggestedPromptsSchema);
 
 /**
  * Fetch the source image server-side (no CORS issues) and compress it to a

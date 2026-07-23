@@ -8,9 +8,6 @@ importers:
 
   .:
     dependencies:
-      '@fal-ai/client':
-        specifier: ^1.5.0
-        version: 1.5.0
       '@upstash/ratelimit':
         specifier: ^2.0.5
         version: 2.0.5(@upstash/redis@1.35.1)
@@ -20,18 +17,9 @@ importers:
       braintrust:
         specifier: ^3.24.0
         version: 3.24.0(@aws-sdk/credential-provider-web-identity@3.844.0)(supports-color@7.2.0)(zod@4.3.6)
-      class-variance-authority:
-        specifier: ^0.7.1
-        version: 0.7.1
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
-      dedent:
-        specifier: ^1.6.0
-        version: 1.6.0
-      lucide-react:
-        specifier: ^0.511.0
-        version: 0.511.0(react@19.2.4)
       next:
         specifier: ^16.2.6
         version: 16.2.6(@babel/core@7.28.5(supports-color@7.2.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -41,9 +29,6 @@ importers:
       next-s3-upload:
         specifier: ^0.3.4
         version: 0.3.4(next@16.2.6(@babel/core@7.28.5(supports-color@7.2.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)
-      next-themes:
-        specifier: ^0.4.6
-        version: 0.4.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       react:
         specifier: ^19.2.4
         version: 19.2.4
@@ -59,12 +44,6 @@ importers:
       sonner:
         specifier: ^2.0.5
         version: 2.0.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      tailwind-merge:
-        specifier: ^3.3.0
-        version: 3.3.1
-      tiny-invariant:
-        specifier: ^1.3.3
-        version: 1.3.3
       together-ai:
         specifier: ^0.16.0
         version: 0.16.0(debug@4.4.3(supports-color@7.2.0))
@@ -550,10 +529,6 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@fal-ai/client@1.5.0':
-    resolution: {integrity: sha512-e0WtcbSjbwKFCOwAex3lRDba1iMY42QAwLZuae7oc5xNav2+HdprE9QWYdsDS3nyr0GOttEpUgsBa/c/AKAguA==}
-    engines: {node: '>=18.0.0'}
-
   '@img/colour@1.0.0':
     resolution: {integrity: sha512-A5P/LfWGFSl6nsckYtjw9da+19jB8hkJ6ACTGcDfEJ0aE+l2n2El7dsVM7UVHZQ9s2lmYMWlrS21YLy2IR1LUw==}
     engines: {node: '>=18'}
@@ -732,10 +707,6 @@ packages:
 
   '@kwsites/promise-deferred@1.1.1':
     resolution: {integrity: sha512-GaHYm+c0O9MjZRu0ongGBRbinu8gVAMd2UZjji6jVmqKtZluZnptXGWhz1E8j8D2HJ3f/yMxKAUC0b+57wncIw==}
-
-  '@msgpack/msgpack@3.1.2':
-    resolution: {integrity: sha512-JEW4DEtBzfe8HvUYecLU9e6+XJnKDlUAIve8FvPzF3Kzs6Xo/KuZkZJsDH0wJXl/qEZbeeE7edxDNY3kMs39hQ==}
-    engines: {node: '>= 18'}
 
   '@next/env@14.2.35':
     resolution: {integrity: sha512-DuhvCtj4t9Gwrx80dmz2F4t/zKQ4ktN8WrMwOuVzkJfBilwAwGr6v16M5eI8yCuZ63H9TTuEU09Iu2HqkzFPVQ==}
@@ -1298,9 +1269,6 @@ packages:
   cjs-module-lexer@2.2.0:
     resolution: {integrity: sha512-4bHTS2YuzUvtoLjdy+98ykbNB5jS0+07EvFNXerqZQJ89F7DI6ET7OQo/HJuW6K0aVsKA9hj9/RVb2kQVOrPDQ==}
 
-  class-variance-authority@0.7.1:
-    resolution: {integrity: sha512-Ka+9Trutv7G8M6WT6SeiRWz792K5qEqIGEGzXKhAE6xOWAY6pPH8U+9IY3oCMv6kqTmLsv7Xh/2w2RigkePMsg==}
-
   cli-progress@3.12.0:
     resolution: {integrity: sha512-tRkV3HJ1ASwm19THiiLIXLO7Im7wlTuKnvkYaTkyoAPefqjNg7W7DHKUlGRxy9vxDvbyCYQkQozvptuMkGCg8A==}
     engines: {node: '>=4'}
@@ -1372,14 +1340,6 @@ packages:
       supports-color: '*'
     peerDependenciesMeta:
       supports-color:
-        optional: true
-
-  dedent@1.6.0:
-    resolution: {integrity: sha512-F1Z+5UCFpmQUzJa11agbyPVMbpgT/qA3/SKyJ1jyBgm7dUcUEa8v9JwDkerSQXfakBwFljIxhOJqGkjUwZ9FSA==}
-    peerDependencies:
-      babel-plugin-macros: ^3.1.0
-    peerDependenciesMeta:
-      babel-plugin-macros:
         optional: true
 
   delayed-stream@1.0.0:
@@ -1689,11 +1649,6 @@ packages:
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
 
-  lucide-react@0.511.0:
-    resolution: {integrity: sha512-VK5a2ydJ7xm8GvBeKLS9mu1pVK6ucef9780JVUjw6bAjJL/QXnd4Y0p7SPeOUMC27YhzNCZvm5d/QX0Tp3rc0w==}
-    peerDependencies:
-      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
-
   lzo@0.4.11:
     resolution: {integrity: sha512-apQHNoW2Alg72FMqaC/7pn03I7umdgSVFt2KRkCXXils4Z9u3QBh1uOtl2O5WmZIDLd9g6Lu4lIdOLmiSTFVCQ==}
 
@@ -1781,12 +1736,6 @@ packages:
     peerDependencies:
       next: '>=9.4'
       react: '>=16'
-
-  next-themes@0.4.6:
-    resolution: {integrity: sha512-pZvgD5L0IEvX5/9GWyHMf3m8BKiVQwsCMHfoFosXtXBMnaS0ZnIJ9ST4b4NqLVKDEm8QBxoNNGNaBv2JNF6XNA==}
-    peerDependencies:
-      react: ^16.8 || ^17 || ^18 || ^19 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17 || ^18 || ^19 || ^19.0.0-rc
 
   next@16.2.6:
     resolution: {integrity: sha512-qOVgKJg1+At15NpeUP+eJgCHvTCgXsogweq87Ri/Ix7PkqQHg4sdaXmSFqKlgaIXE4kW0g25LE68W87UANlHtw==}
@@ -1997,9 +1946,6 @@ packages:
     resolution: {integrity: sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw==}
     engines: {node: '>=0.10.0'}
 
-  robot3@0.4.1:
-    resolution: {integrity: sha512-hzjy826lrxzx8eRgv80idkf8ua1JAepRc9Efdtj03N3KNJuznQCPlyCJ7gnUmDFwZCLQjxy567mQVKmdv2BsXQ==}
-
   router@2.2.0:
     resolution: {integrity: sha512-nLTrUKm2UyiL7rlhapu/Zl45FwNgkZGaCpZbIHajDYgwlJCOzLSk+cIPAnsEqV955GjILJnKbdQC1nVPz+gAYQ==}
     engines: {node: '>= 18'}
@@ -2126,9 +2072,6 @@ packages:
     resolution: {integrity: sha512-qpCAvRl9stuOHveKsn7HncJRvv501qIacKzQlO/+Lwxc9+0q2wLyv4Dfvt80/DPn2pqOBsJdDiogXGR9+OvwRw==}
     engines: {node: '>=8'}
 
-  tailwind-merge@3.3.1:
-    resolution: {integrity: sha512-gBXpgUm/3rp1lMZZrM/w7D8GKqshif0zAymAhbCyIt8KMe+0v9DQ7cdYLR4FHH/cKpdTXb+A/tKKU3eolfsI+g==}
-
   tailwindcss@4.1.11:
     resolution: {integrity: sha512-2E9TBm6MDD/xKYe+dvJZAmg3yxIEDNRc0jwlNyDg/4Fil2QcSLjFKGVff0lAf1jjeaArlG/M75Ey/EYr/OJtBA==}
 
@@ -2151,9 +2094,6 @@ packages:
 
   through2@2.0.5:
     resolution: {integrity: sha512-/mrRod8xqpA+IHSLyGCQ2s8SPHiCDEeQJSep1jqLYeEUClOFG2Qsh+4FU6G9VeqpZnGW/Su8LQGc4YKni5rYSQ==}
-
-  tiny-invariant@1.3.3:
-    resolution: {integrity: sha512-+FbBPE1o9QAYvviau/qC5SE3caw21q3xkvWKBtja5vgqOWIHHJ3ioaq1VPfn/Szqctz2bU/oYeKd9/z5BL+PVg==}
 
   together-ai@0.16.0:
     resolution: {integrity: sha512-k8vrcjNKlaklf9lFkIeNzH/M/xt2Ykt84/RruK+AGMu8G/+M2Kx4kHyjx6kgSgt8wpgi3JvvzZ6fg7Y3FORuFA==}
@@ -3050,12 +2990,6 @@ snapshots:
   '@esbuild/win32-x64@0.28.1':
     optional: true
 
-  '@fal-ai/client@1.5.0':
-    dependencies:
-      '@msgpack/msgpack': 3.1.2
-      eventsource-parser: 1.1.2
-      robot3: 0.4.1
-
   '@img/colour@1.0.0': {}
 
   '@img/sharp-darwin-arm64@0.34.5':
@@ -3182,8 +3116,6 @@ snapshots:
       - supports-color
 
   '@kwsites/promise-deferred@1.1.1': {}
-
-  '@msgpack/msgpack@3.1.2': {}
 
   '@next/env@14.2.35': {}
 
@@ -3869,10 +3801,6 @@ snapshots:
 
   cjs-module-lexer@2.2.0: {}
 
-  class-variance-authority@0.7.1:
-    dependencies:
-      clsx: 2.1.1
-
   cli-progress@3.12.0:
     dependencies:
       string-width: 4.2.3
@@ -3926,8 +3854,6 @@ snapshots:
       ms: 2.1.3
     optionalDependencies:
       supports-color: 7.2.0
-
-  dedent@1.6.0: {}
 
   delayed-stream@1.0.0: {}
 
@@ -4233,10 +4159,6 @@ snapshots:
       yallist: 3.1.1
     optional: true
 
-  lucide-react@0.511.0(react@19.2.4):
-    dependencies:
-      react: 19.2.4
-
   lzo@0.4.11:
     dependencies:
       bindings: 1.2.1
@@ -4306,11 +4228,6 @@ snapshots:
       uuid: 8.3.2
     transitivePeerDependencies:
       - aws-crt
-
-  next-themes@0.4.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
-    dependencies:
-      react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
 
   next@16.2.6(@babel/core@7.28.5(supports-color@7.2.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
     dependencies:
@@ -4458,8 +4375,6 @@ snapshots:
       util-deprecate: 1.0.2
 
   require-from-string@2.0.2: {}
-
-  robot3@0.4.1: {}
 
   router@2.2.0(supports-color@7.2.0):
     dependencies:
@@ -4636,8 +4551,6 @@ snapshots:
       has-flag: 4.0.0
     optional: true
 
-  tailwind-merge@3.3.1: {}
-
   tailwindcss@4.1.11: {}
 
   tapable@2.2.2: {}
@@ -4666,8 +4579,6 @@ snapshots:
     dependencies:
       readable-stream: 2.3.8
       xtend: 4.0.2
-
-  tiny-invariant@1.3.3: {}
 
   together-ai@0.16.0(debug@4.4.3(supports-color@7.2.0)):
     dependencies:
