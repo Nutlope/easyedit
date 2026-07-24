@@ -25,45 +25,67 @@ export function getAdjustedDimensions(
   return fitArea(width, height, spec);
 }
 
+export function areImageEditDimensionsValid(
+  width: number,
+  height: number,
+  model: ImageEditModel,
+) {
+  const spec = IMAGE_EDIT_MODEL_SPEC[model].dimensions;
+  if (
+    !Number.isFinite(width) ||
+    !Number.isFinite(height) ||
+    width <= 0 ||
+    height <= 0 ||
+    width % spec.multipleOf !== 0 ||
+    height % spec.multipleOf !== 0
+  ) {
+    return false;
+  }
+
+  const aspect = width / height;
+  if (aspect < spec.aspectMin || aspect > spec.aspectMax) return false;
+
+  if (spec.strategy === "flux") {
+    return width >= 256 && height >= 256 && width <= 1024 && height <= 1024;
+  }
+
+  const area = width * height;
+  return area >= (spec.areaMin ?? 0) && area <= (spec.areaMax ?? Infinity);
+}
+
 const roundToMultipleOf = (value: number, multiple: number) =>
   Math.round(value / multiple) * multiple;
 
 /**
  * Original FLUX.2 scaling, preserved byte-for-byte so the existing FLUX path is
- * unchanged: longest side capped at 1024, shortest side floored at 64,
- * multiples of 16.
+ * unchanged for ordinary images: longest side capped at 1024 and both sides
+ * rounded to multiples of 16. Together now rejects sides below 256, so extreme
+ * source aspect ratios are clamped to the representable 1:4–4:1 range.
  */
 function fluxAdjust(width: number, height: number) {
   const maxDim = 1024;
-  const minDim = 64;
+  const minDim = 256;
+  const landscape = width >= height;
+  const long0 = Math.max(width, height);
+  const short0 = Math.min(width, height);
+  const rawAspect =
+    Number.isFinite(long0 / short0) && short0 > 0 ? long0 / short0 : 1;
+  const aspect = Math.min(4, Math.max(1, rawAspect));
 
-  const roundToMultipleOf16 = (n: number) => Math.round(n / 16) * 16;
+  let long = Math.min(maxDim, Math.max(minDim, long0));
+  let short = long / aspect;
 
-  const aspectRatio = width / height;
-
-  let scaledWidth = width;
-  let scaledHeight = height;
-
-  if (width > maxDim || height > maxDim) {
-    if (aspectRatio >= 1) {
-      scaledWidth = maxDim;
-      scaledHeight = Math.round(maxDim / aspectRatio);
-    } else {
-      scaledHeight = maxDim;
-      scaledWidth = Math.round(maxDim * aspectRatio);
-    }
+  if (short < minDim) {
+    short = minDim;
+    long = short * aspect;
   }
 
-  const adjustedWidth = Math.min(
-    maxDim,
-    Math.max(minDim, roundToMultipleOf16(scaledWidth)),
-  );
-  const adjustedHeight = Math.min(
-    maxDim,
-    Math.max(minDim, roundToMultipleOf16(scaledHeight)),
-  );
+  long = Math.min(maxDim, Math.max(minDim, roundToMultipleOf(long, 16)));
+  short = Math.min(maxDim, Math.max(minDim, roundToMultipleOf(short, 16)));
 
-  return { width: adjustedWidth, height: adjustedHeight };
+  return landscape
+    ? { width: long, height: short }
+    : { width: short, height: long };
 }
 
 /**

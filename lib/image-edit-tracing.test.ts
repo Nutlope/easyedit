@@ -5,10 +5,7 @@ import {
   buildImageEditTraceSuccess,
   estimateImageEditCost,
 } from "./image-edit-tracing";
-import {
-  extractDataUrlBase64,
-  serializeBraintrustError,
-} from "./trace-safety";
+import { extractDataUrlBase64, serializeBraintrustError } from "./trace-safety";
 
 test("records safe image-edit inputs without source image data or API keys", () => {
   const trace = buildImageEditTraceStart({
@@ -50,7 +47,7 @@ test("records the returned image URL, usage, latency, and fixed image cost", () 
         {
           url: "https://api.together.ai/generated/output.png",
           b64_json: imagePayload,
-          timings: { inference: 1.25 },
+          timings: { inference: 1250 },
         },
       ],
     },
@@ -142,7 +139,10 @@ test("extracts the base64 payload from a data URL for redaction", () => {
   const base64 = "AAABBBCCC123+/==";
   assert.equal(extractDataUrlBase64(`data:image/png;base64,${base64}`), base64);
   // Plain https URLs and empty input carry no base64 to redact.
-  assert.equal(extractDataUrlBase64("https://example.com/photo.png"), undefined);
+  assert.equal(
+    extractDataUrlBase64("https://example.com/photo.png"),
+    undefined,
+  );
   assert.equal(extractDataUrlBase64(null), undefined);
   assert.equal(extractDataUrlBase64(""), undefined);
 });

@@ -76,4 +76,9 @@ export async function logBraintrustFailure(
   await endAndFlushBraintrustSpan(span);
 }
 
+export async function logBraintrustOutcome(args: StartSpanArgs) {
+  const span = startBraintrustSpan(args);
+  await endAndFlushBraintrustSpan(span);
+}
+
 export type { Span };

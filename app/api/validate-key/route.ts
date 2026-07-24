@@ -1,21 +1,30 @@
 import { logBraintrustFailure } from "@/lib/braintrust";
 import { getTogether } from "@/lib/get-together";
 import { API_KEY_VALIDATION_MODEL } from "@/lib/model-config";
+import { serializeBraintrustError } from "@/lib/trace-safety";
+import { classifyTogetherError } from "@/lib/together-error";
+import { z } from "zod";
+
+const requestSchema = z.object({
+  apiKey: z.string().trim().min(20).max(512),
+});
 
 export async function POST(request: Request) {
   try {
-    const { apiKey } = await request.json();
+    const parsed = requestSchema.safeParse(await request.json());
 
-    if (!apiKey) {
-      return new Response(
-        JSON.stringify({
+    if (!parsed.success) {
+      return jsonResponse(
+        {
           success: false,
-          message: "API key is required",
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
+          message: "Enter a valid Together API key.",
+          code: "INVALID_REQUEST",
+        },
+        400,
       );
     }
 
+    const { apiKey } = parsed.data;
     const together = getTogether(apiKey);
 
     try {
@@ -31,15 +40,16 @@ export async function POST(request: Request) {
         max_tokens: 1, // Minimal tokens for validation
       });
 
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: "API key is valid",
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
-      );
+      return jsonResponse({
+        success: true,
+        message: "API key is valid",
+      });
     } catch (error) {
-      console.error("API key validation failed:", error);
+      const failure = classifyTogetherError(error);
+      console.warn(
+        `API key validation rejected: ${failure.kind}`,
+        serializeBraintrustError(error, [apiKey]),
+      );
 
       // Record the validation failure so the key-check early return doesn't
       // disappear from Braintrust observability. The user's API key is passed
@@ -54,6 +64,7 @@ export async function POST(request: Request) {
               route: "validate-key",
               phase: "key-validation",
               success: false,
+              failureKind: failure.kind,
             },
           },
         },
@@ -61,29 +72,44 @@ export async function POST(request: Request) {
         [apiKey],
       );
 
-      const errorCode =
-        typeof error === "object" && error !== null && "code" in error
-          ? String((error as { code?: unknown }).code)
-          : undefined;
-
-      return new Response(
-        JSON.stringify({
+      return jsonResponse(
+        {
           success: false,
-          message: "Invalid API key or service unavailable",
-          code: errorCode || "VALIDATION_ERROR",
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
+          message: failure.userMessage,
+          code: failure.code ?? failure.kind.toUpperCase(),
+        },
+        validationStatus(failure.kind),
       );
     }
   } catch (error) {
-    console.error("Request processing failed:", error);
-    return new Response(
-      JSON.stringify({
+    console.warn("API key validation rejected: invalid_request");
+    return jsonResponse(
+      {
         success: false,
         message: "Invalid request format",
         code: "INVALID_REQUEST",
-      }),
-      { status: 200, headers: { "Content-Type": "application/json" } },
+      },
+      400,
     );
   }
+}
+
+function validationStatus(
+  kind: ReturnType<typeof classifyTogetherError>["kind"],
+) {
+  if (kind === "invalid_key") return 401;
+  if (kind === "insufficient_credits") return 402;
+  if (kind === "rate_limit") return 429;
+  if (kind === "transient") return 503;
+  return 502;
+}
+
+function jsonResponse(body: Record<string, unknown>, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+    },
+  });
 }

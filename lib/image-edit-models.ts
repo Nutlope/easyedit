@@ -24,7 +24,7 @@ export const IMAGE_EDIT_PRICE_PER_IMAGE: Record<ImageEditModel, number> = {
  * Together image models accept image-to-image edits through one of two request
  * parameters and enforce model-specific output-dimension rules. Both were
  * verified against the live Together API:
- *  - FLUX.2 flex/pro:   `image_url`, longest side <= 1024 (multiples of 16).
+ *  - FLUX.2 flex/pro:   `image_url`, sides in [256, 1024] (multiples of 16).
  *  - Seedream-5.0-lite: `reference_images`, total area in [3,686,400, 10,404,496] (mult. 8).
  */
 export type ImageEditParam = "image_url" | "reference_images";
@@ -36,10 +36,10 @@ export type ImageEditDimensionSpec = {
   aspectMin: number;
   aspectMax: number;
   /**
-   * "flux" preserves the existing FLUX.2 scaling (longest side capped at
-   * 1024, shortest side floored at 64) byte-for-byte, so the working FLUX path
-   * is unchanged. "fitArea" scales preserving aspect so the total pixel area
-   * lands in [`areaMin`, `areaMax`].
+   * "flux" keeps ordinary FLUX.2 images at or below 1024 while enforcing the
+   * provider's 256px minimum side and representable aspect range. "fitArea"
+   * scales preserving aspect so total pixel area lands in
+   * [`areaMin`, `areaMax`].
    */
   strategy: "flux" | "fitArea";
   areaMin?: number;
@@ -57,8 +57,8 @@ export const IMAGE_EDIT_MODEL_SPEC: Record<
     dimensions: {
       strategy: "flux",
       multipleOf: 16,
-      aspectMin: 1 / 16,
-      aspectMax: 16,
+      aspectMin: 1 / 4,
+      aspectMax: 4,
     },
   },
   "black-forest-labs/FLUX.2-pro": {
@@ -66,8 +66,8 @@ export const IMAGE_EDIT_MODEL_SPEC: Record<
     dimensions: {
       strategy: "flux",
       multipleOf: 16,
-      aspectMin: 1 / 16,
-      aspectMax: 16,
+      aspectMin: 1 / 4,
+      aspectMax: 4,
     },
   },
   "ByteDance/Seedream-5.0-lite": {

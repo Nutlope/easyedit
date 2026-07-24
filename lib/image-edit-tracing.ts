@@ -66,7 +66,7 @@ export function buildImageEditTraceSuccess(
   durationMs: number,
   providerDurationMs: number,
 ) {
-  const inferenceSeconds = response.data?.[0]?.timings?.inference;
+  const inferenceMs = response.data?.[0]?.timings?.inference;
   const imageCount = response.data?.length ?? 0;
   const cost = estimateImageEditCost(model, imageCount);
   const outputUrl = sanitizeOutputUrl(response.data?.[0]?.url);
@@ -76,8 +76,8 @@ export function buildImageEditTraceSuccess(
     estimated_cost: cost.estimatedCost,
   };
 
-  if (typeof inferenceSeconds === "number") {
-    metrics.inference_ms = inferenceSeconds * 1_000;
+  if (typeof inferenceMs === "number") {
+    metrics.inference_ms = inferenceMs;
   }
 
   return {

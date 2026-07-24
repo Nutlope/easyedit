@@ -3,29 +3,42 @@ import { Redis } from "@upstash/redis";
 import { headers } from "next/headers";
 import "server-only";
 
-export function getRateLimiter() {
-  let ratelimit: Ratelimit | undefined;
+export type RateLimiter = Ratelimit | "unavailable" | undefined;
+export type RateLimitDecision =
+  | { status: "ok" }
+  | { status: "limited"; resetAt: number }
+  | { status: "unavailable" };
 
+export function getRateLimiter() {
   // Add rate limiting if Upstash API keys are set, otherwise skip
   if (process.env.UPSTASH_REDIS_REST_URL) {
-    ratelimit = new Ratelimit({
-      redis: Redis.fromEnv(),
-      // Allow 5 requests per day
-      limiter: Ratelimit.fixedWindow(5, "1 d"),
-      analytics: true,
-      prefix: "easyedit",
-    });
+    try {
+      return new Ratelimit({
+        redis: Redis.fromEnv(),
+        // Allow 5 requests per day
+        limiter: Ratelimit.fixedWindow(5, "1 d"),
+        analytics: true,
+        prefix: "easyedit",
+      });
+    } catch (error) {
+      console.error(
+        "Rate limiter initialization failed:",
+        error instanceof Error ? error.message : String(error),
+      );
+      return "unavailable";
+    }
   }
-  return ratelimit;
+  return undefined;
 }
 
 /**
  * Enforce the rate limit for a non-BYOK request, bypassing local traffic.
  *
- * Returns `"limited"` when the caller is over quota (respond 429-style) and
- * `"ok"` otherwise. BYOK requests pass straight through (`"ok"`) — they bill to
- * the caller's own Together account, so the shared quota never applies. When no
- * limiter is configured (Upstash unset) everything is `"ok"`.
+ * Returns a limited decision when the caller is over quota (including the
+ * server reset timestamp), an unavailable decision when configured Upstash
+ * infrastructure fails, and ok otherwise. BYOK requests pass straight through
+ * because they bill to the caller's own Together account. When no limiter is
+ * configured (Upstash unset), everything is ok.
  *
  * Production keeps the limit; loopback hosts (localhost, 127.0.0.1, …) are
  * bypassed via `isLocalRequest` so local testing is never throttled. The optional
@@ -33,18 +46,27 @@ export function getRateLimiter() {
  * caller doesn't exhaust the edit quota with suggestion calls.
  */
 export async function enforceRateLimit(
-  ratelimit: Ratelimit | undefined,
+  ratelimit: RateLimiter,
   userAPIKey: string | null,
   keySuffix = "",
-): Promise<"ok" | "limited"> {
-  if (!ratelimit || userAPIKey) return "ok";
+): Promise<RateLimitDecision> {
+  if (userAPIKey || !ratelimit) return { status: "ok" };
 
-  if (await isLocalRequest()) return "ok";
+  if (await isLocalRequest()) return { status: "ok" };
+  if (ratelimit === "unavailable") return { status: "unavailable" };
 
   const ipAddress = await getIPAddress();
   const key = keySuffix ? `${ipAddress}-${keySuffix}` : ipAddress;
-  const { success } = await ratelimit.limit(key);
-  return success ? "ok" : "limited";
+  try {
+    const { success, reset } = await ratelimit.limit(key);
+    return success ? { status: "ok" } : { status: "limited", resetAt: reset };
+  } catch (error) {
+    console.error(
+      "Rate limiter request failed:",
+      error instanceof Error ? error.message : String(error),
+    );
+    return { status: "unavailable" };
+  }
 }
 async function getIPAddress() {
   const FALLBACK_IP_ADDRESS = "0.0.0.0";

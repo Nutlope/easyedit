@@ -403,6 +403,7 @@ export default function Home() {
 
                       <SuggestedPrompts
                         imageUrl={activeImage.url}
+                        hasApiKey={hasApiKey}
                         onSelect={(suggestion) => {
                           flushSync(() => {
                             setPrompt(suggestion);

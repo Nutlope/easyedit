@@ -7,11 +7,14 @@
  */
 import sharp from "sharp";
 import { z } from "zod/v4";
+import { fetchRemoteImage, RemoteImageError } from "./remote-image";
 
 const SUGGESTED_PROMPTS_SYSTEM_PROMPT = `Suggest exactly 3 simple image edits. Output ONLY a JSON array of 3 short strings (5-8 words each). Example: ["edit 1","edit 2","edit 3"]`;
 
 /** Zod schema for the 3-string suggestion array (used to validate the model output). */
-export const suggestedPromptsSchema = z.array(z.string());
+export const suggestedPromptsSchema = z
+  .array(z.string().trim().min(1).max(120))
+  .length(3);
 
 /** JSON-schema sent to the model via `response_format` so output is parseable. */
 const suggestedPromptsJsonSchema = z.toJSONSchema(suggestedPromptsSchema);
@@ -22,18 +25,20 @@ const suggestedPromptsJsonSchema = z.toJSONSchema(suggestedPromptsSchema);
  * so the benchmark compresses exactly the way production does.
  */
 export async function fetchAndCompressImage(imageUrl: string): Promise<string> {
-  const response = await fetch(imageUrl);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch image: ${response.status}`);
+  const buffer = await fetchRemoteImage(imageUrl);
+  return compressImageBuffer(buffer);
+}
+
+export async function compressImageBuffer(buffer: Buffer): Promise<string> {
+  let compressedBuffer: Buffer;
+  try {
+    compressedBuffer = await sharp(buffer)
+      .resize(300, 300, { fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 80, progressive: true })
+      .toBuffer();
+  } catch {
+    throw new RemoteImageError("decode_failed", "Image could not be decoded");
   }
-
-  const arrayBuffer = await response.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-
-  const compressedBuffer = await sharp(buffer)
-    .resize(300, 300, { fit: "inside", withoutEnlargement: true })
-    .jpeg({ quality: 80, progressive: true })
-    .toBuffer();
 
   return `data:image/jpeg;base64,${compressedBuffer.toString("base64")}`;
 }
@@ -67,6 +72,9 @@ export function buildSuggestedPromptsRequestBody(args: {
         ],
       },
     ],
-    response_format: { type: "json_object", schema: suggestedPromptsJsonSchema },
+    response_format: {
+      type: "json_object",
+      schema: suggestedPromptsJsonSchema,
+    },
   };
 }
