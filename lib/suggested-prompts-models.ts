@@ -7,11 +7,10 @@
  */
 
 // Production default for suggested-prompts (vision + JSON-schema, reasoning
-// disabled). Picked on value: cheapest per call and ~0.7s steady-state, 3/3
-// valid — it dominates the prior default (Qwen3.5-9B) on both speed and cost.
-// See scripts/bench-suggested-prompts.ts (run with CONCURRENCY=1 for clean
-// latency; concurrent runs show per-key queueing artifacts).
-export const SUGGESTED_PROMPTS_MODEL = "google/gemma-3n-E4B-it" as const;
+// disabled). Qwen3.5-9B was 3/3 valid at ~1.27s in the compressed-image
+// benchmark and replaces gemma-3n-E4B-it ahead of its August 4 removal.
+// See scripts/bench-suggested-prompts.ts.
+export const SUGGESTED_PROMPTS_MODEL = "Qwen/Qwen3.5-9B" as const;
 
 // Trivial 1-token text completion used to check a user's API key (see
 // app/api/validate-key/route.ts). Reuses SUGGESTED_PROMPTS_MODEL so a single
@@ -33,5 +32,4 @@ export const SUGGESTED_PROMPTS_BENCHMARK_MODELS = [
   "google/gemma-4-31B-it",
   "pearl-ai/gemma-4-31b-it",
   "Qwen/Qwen3.5-9B",
-  "google/gemma-3n-E4B-it",
 ] as const;

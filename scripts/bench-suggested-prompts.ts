@@ -8,7 +8,7 @@
 // Usage:
 //   TOGETHER_API_KEY=... npx tsx scripts/bench-suggested-prompts.ts
 //   RUNS=5 IMAGE_URL=https://... npx tsx scripts/bench-suggested-prompts.ts
-//   npx tsx scripts/bench-suggested-prompts.ts google/gemma-3n-E4B-it Qwen/Qwen3.5-9B
+//   npx tsx scripts/bench-suggested-prompts.ts Qwen/Qwen3.5-9B moonshotai/Kimi-K2.6
 //
 // Env:
 //   TOGETHER_API_KEY  (required) Together API key.

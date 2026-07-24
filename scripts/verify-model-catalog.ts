@@ -74,11 +74,6 @@ const expected = {
     inputPrice: 0.17,
     outputPrice: 0.25,
   },
-  "google/gemma-3n-E4B-it": {
-    type: "chat",
-    inputPrice: 0.06,
-    outputPrice: 0.12,
-  },
 } as const;
 
 async function main() {
