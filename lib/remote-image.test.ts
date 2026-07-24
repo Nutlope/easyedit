@@ -6,7 +6,7 @@ import {
   validateRemoteImageUrl,
 } from "./remote-image";
 
-test("rejects non-http and private image destinations", async () => {
+test("rejects non-HTTPS and private image destinations", async () => {
   for (const url of [
     "data:text/plain,hello",
     "http://localhost/image.png",
@@ -23,6 +23,14 @@ test("rejects non-http and private image destinations", async () => {
       url,
     );
   }
+
+  await assert.rejects(
+    validateRemoteImageUrl("http://api.together.ai/image.png", async () => [
+      { address: "93.184.216.34", family: 4 },
+    ]),
+    (error: unknown) =>
+      error instanceof RemoteImageError && error.code === "unsafe_url",
+  );
 });
 
 test("rejects hostnames that resolve to a private address", async () => {
@@ -35,24 +43,30 @@ test("rejects hostnames that resolve to a private address", async () => {
   );
 });
 
-test("allows only the Together and S3 hostname forms used by the app", async () => {
+test("allows only the app bucket and Together image host", async () => {
   const publicLookup = async () => [{ address: "93.184.216.34", family: 4 }];
   for (const url of [
     "https://api.together.ai/generated/image.png",
-    "https://s3.us-east-1.amazonaws.com/bucket/image.png",
-    "https://bucket.s3.amazonaws.com/image.png",
-    "https://napkinsdev.s3.us-east-1.amazonaws.com/image.png",
+    "https://napkinsdev.s3.us-east-1.amazonaws.com/next-s3-uploads/id/image.png",
   ]) {
     await assert.doesNotReject(validateRemoteImageUrl(url, publicLookup));
   }
-  await assert.rejects(
-    validateRemoteImageUrl(
-      "https://ec2.us-east-1.amazonaws.com/image.png",
-      publicLookup,
-    ),
-    (error: unknown) =>
-      error instanceof RemoteImageError && error.code === "unsafe_url",
-  );
+
+  for (const url of [
+    "https://s3.us-east-1.amazonaws.com/napkinsdev/image.png",
+    "https://another-bucket.s3.us-east-1.amazonaws.com/image.png",
+    "https://bucket.s3.amazonaws.com/image.png",
+    "https://napkinsdev.s3.us-east-1.amazonaws.com/other/image.png",
+    "https://api.together.xyz/generated/image.png",
+    "https://ec2.us-east-1.amazonaws.com/image.png",
+  ]) {
+    await assert.rejects(
+      validateRemoteImageUrl(url, publicLookup),
+      (error: unknown) =>
+        error instanceof RemoteImageError && error.code === "unsafe_url",
+      url,
+    );
+  }
 });
 
 test("rejects non-image and oversized responses before decoding", async () => {
@@ -71,6 +85,18 @@ test("rejects non-image and oversized responses before decoding", async () => {
   );
 
   await assert.rejects(
+    fetchRemoteImage("https://api.together.ai/generic-binary", {
+      lookup: publicLookup,
+      fetch: async () =>
+        new Response("not-an-image", {
+          headers: { "content-type": "application/octet-stream" },
+        }),
+    }),
+    (error: unknown) =>
+      error instanceof RemoteImageError && error.code === "unsupported_type",
+  );
+
+  await assert.rejects(
     fetchRemoteImage("https://api.together.ai/huge.jpg", {
       lookup: publicLookup,
       maxBytes: 4,
@@ -82,6 +108,33 @@ test("rejects non-image and oversized responses before decoding", async () => {
     (error: unknown) =>
       error instanceof RemoteImageError && error.code === "too_large",
   );
+});
+
+test("uses one timeout budget across redirects", async () => {
+  const publicLookup = async () => [{ address: "93.184.216.34", family: 4 }];
+  const signals: Array<AbortSignal | null | undefined> = [];
+  let requestCount = 0;
+
+  await fetchRemoteImage("https://api.together.ai/first.jpg", {
+    lookup: publicLookup,
+    fetch: async (_input, init) => {
+      signals.push(init?.signal);
+      requestCount += 1;
+      if (requestCount === 1) {
+        return new Response(null, {
+          status: 302,
+          headers: { location: "/second.jpg" },
+        });
+      }
+      return new Response("image", {
+        headers: { "content-type": "image/jpeg" },
+      });
+    },
+  });
+
+  assert.equal(signals.length, 2);
+  assert.ok(signals[0]);
+  assert.equal(signals[0], signals[1]);
 });
 
 test("revalidates redirect destinations", async () => {

@@ -38,13 +38,9 @@ type FetchRemoteImageOptions = {
 const DEFAULT_MAX_BYTES = 10 * 1024 * 1024;
 const DEFAULT_MAX_REDIRECTS = 3;
 const DEFAULT_TIMEOUT_MS = 10_000;
-const TRUSTED_IMAGE_HOSTS = new Set([
-  "api.together.ai",
-  "api.together.xyz",
-  "s3.amazonaws.com",
-]);
-const S3_HOST_PATTERN =
-  /^(?:[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.)?s3(?:-accelerate)?(?:\.dualstack)?(?:[.-][a-z0-9-]+)?\.amazonaws\.com$/i;
+const TOGETHER_IMAGE_HOST = "api.together.ai";
+const UPLOAD_IMAGE_HOST = "napkinsdev.s3.us-east-1.amazonaws.com";
+const UPLOAD_KEY_PREFIX = "/next-s3-uploads/";
 
 export async function fetchRemoteImage(
   imageUrl: string,
@@ -55,6 +51,7 @@ export async function fetchRemoteImage(
   const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
   const maxRedirects = options.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
   let currentUrl = await validateRemoteImageUrl(imageUrl, lookup);
 
   for (let redirects = 0; redirects <= maxRedirects; redirects += 1) {
@@ -62,7 +59,7 @@ export async function fetchRemoteImage(
     try {
       response = await fetchImpl(currentUrl, {
         redirect: "manual",
-        signal: AbortSignal.timeout(timeoutMs),
+        signal: timeoutSignal,
         headers: { Accept: "image/*" },
       });
     } catch (error) {
@@ -101,10 +98,7 @@ export async function fetchRemoteImage(
     }
 
     const contentType = response.headers.get("content-type")?.toLowerCase();
-    if (
-      !contentType?.startsWith("image/") &&
-      contentType !== "application/octet-stream"
-    ) {
+    if (!contentType?.startsWith("image/")) {
       throw new RemoteImageError(
         "unsupported_type",
         `Unsupported image content type: ${contentType ?? "missing"}`,
@@ -136,10 +130,10 @@ export async function validateRemoteImageUrl(
     throw new RemoteImageError("invalid_url", "Image URL is invalid");
   }
 
-  if (url.protocol !== "https:" && url.protocol !== "http:") {
+  if (url.protocol !== "https:") {
     throw new RemoteImageError(
       "unsafe_url",
-      "Only HTTP(S) image URLs are allowed",
+      "Only HTTPS image URLs are allowed",
     );
   }
 
@@ -151,7 +145,11 @@ export async function validateRemoteImageUrl(
   ) {
     throw new RemoteImageError("unsafe_url", "Private image URLs are blocked");
   }
-  if (!TRUSTED_IMAGE_HOSTS.has(hostname) && !S3_HOST_PATTERN.test(hostname)) {
+  const isTogetherImage = hostname === TOGETHER_IMAGE_HOST;
+  const isAppUpload =
+    hostname === UPLOAD_IMAGE_HOST &&
+    url.pathname.startsWith(UPLOAD_KEY_PREFIX);
+  if (!isTogetherImage && !isAppUpload) {
     throw new RemoteImageError(
       "unsafe_url",
       "Image host is not trusted by this application",
