@@ -16,6 +16,7 @@ import {
   buildImageEditTraceStart,
   buildImageEditTraceSuccess,
 } from "@/lib/image-edit-tracing";
+import { requestImageEdit } from "@/lib/image-edit-request";
 import {
   buildImageEditRequestBody,
   IMAGE_EDIT_MODELS,
@@ -127,7 +128,11 @@ export async function generateImage(
       imageUrl,
     }) as unknown as Parameters<typeof together.images.create>[0];
     const { value: response, retries } = await withImageEditRetry(
-      () => together.images.create(requestBody),
+      () =>
+        requestImageEdit(
+          (body, options) => together.images.create(body, options),
+          requestBody,
+        ),
       {
         dimensionsAreValid: areImageEditDimensionsValid(
           adjustedDimensions.width,
