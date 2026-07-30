@@ -91,8 +91,12 @@ test("retries one locally-valid inconsistent dimension rejection", async () => {
   assert.equal(delays.length, 1);
 });
 
-test("does not retry moderation, rate limits, or locally-invalid dimensions", async () => {
+test("does not retry timeouts, moderation, rate limits, or locally-invalid dimensions", async () => {
   for (const scenario of [
+    {
+      error: new Error("Request timed out."),
+      dimensionsAreValid: true,
+    },
     {
       error: new Error('400 {"error":{"code":"content_policy_violation"}}'),
       dimensionsAreValid: true,
