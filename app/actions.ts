@@ -128,11 +128,7 @@ export async function generateImage(
       imageUrl,
     }) as unknown as Parameters<typeof together.images.create>[0];
     const { value: response, retries } = await withImageEditRetry(
-      () =>
-        requestImageEdit(
-          (body, options) => together.images.create(body, options),
-          requestBody,
-        ),
+      () => requestImageEdit(together, requestBody),
       {
         dimensionsAreValid: areImageEditDimensionsValid(
           adjustedDimensions.width,

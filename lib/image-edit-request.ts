@@ -1,3 +1,5 @@
+import type Together from "together-ai";
+
 /**
  * The Together SDK retries request timeouts five times by default. Its default
  * 60-second timeout can therefore occupy Vercel's entire 300-second function
@@ -12,12 +14,9 @@ const IMAGE_EDIT_REQUEST_OPTIONS = {
   timeout: 60_000,
 };
 
-export function requestImageEdit<TRequest, TResponse>(
-  create: (
-    body: TRequest,
-    options: { maxRetries: number; timeout: number },
-  ) => Promise<TResponse>,
-  body: TRequest,
+export function requestImageEdit(
+  together: Pick<Together, "images">,
+  body: Parameters<Together["images"]["create"]>[0],
 ) {
-  return create(body, IMAGE_EDIT_REQUEST_OPTIONS);
+  return together.images.create(body, IMAGE_EDIT_REQUEST_OPTIONS);
 }
