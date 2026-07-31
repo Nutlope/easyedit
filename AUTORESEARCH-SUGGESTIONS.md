@@ -81,6 +81,21 @@ quality: 0.8 JPEG
 
 **Use Qwen3.5-9B as default** - Only 0.48s slower than Kimi but **19x cheaper** on output tokens. Perfectly adequate for simple edit suggestions.
 
+## July 31, 2026 reliability follow-up
+
+A production Qwen request reached Vercel's 300-second limit because the SDK's
+automatic retries multiplied a rare upstream stall. The model's normal latency
+was not the cause:
+
+| Model                       | Strict budget | Valid | Average | Estimated cost/call |
+| --------------------------- | ------------: | ----: | ------: | ------------------: |
+| `Qwen/Qwen3.5-9B`           |     3 seconds | 20/20 |   0.68s |           $0.000033 |
+| `moonshotai/Kimi-K2.7-Code` |     3 seconds | 20/20 |   0.66s |           $0.000285 |
+
+This change keeps Qwen as the cheap primary and uses Kimi K2.7 Code as a diverse
+fallback. Each attempt has a 2.5-second timeout and `maxRetries: 0`, so the
+provider path is bounded to about five seconds instead of 300 seconds.
+
 ## Files Changed
 
 - `app/api/suggested-prompts/route.ts` - New API route with Sharp image compression + CDN caching
