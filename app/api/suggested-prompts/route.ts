@@ -1,13 +1,9 @@
 import { logBraintrustOutcome } from "@/lib/braintrust";
 import { getTogether } from "@/lib/get-together";
-import { SUGGESTED_PROMPTS_MODEL } from "@/lib/model-config";
 import { buildQuotaRejectionTrace } from "@/lib/rate-limit-tracing";
 import { enforceRateLimit, getRateLimiter } from "@/lib/rate-limiter";
-import {
-  buildSuggestedPromptsRequestBody,
-  fetchAndCompressImage,
-  suggestedPromptsSchema,
-} from "@/lib/suggested-prompts";
+import { fetchAndCompressImage } from "@/lib/suggested-prompts";
+import { requestSuggestedPrompts } from "@/lib/suggested-prompts-request";
 import { RemoteImageError } from "@/lib/remote-image";
 import {
   extractDataUrlBase64,
@@ -82,33 +78,31 @@ export async function GET(request: NextRequest) {
     // Compress image server-side to reduce tokens
     compressedImageUrl = await fetchAndCompressImage(imageUrl);
 
-    const response = await together.chat.completions.create(
-      buildSuggestedPromptsRequestBody({
-        model: SUGGESTED_PROMPTS_MODEL,
-        imageUrl: compressedImageUrl,
-      }) as unknown as Together.Chat.CompletionCreateParamsNonStreaming,
-    );
+    const result = await requestSuggestedPrompts({
+      imageUrl: compressedImageUrl,
+      createCompletion: (body, options) =>
+        together.chat.completions.create(
+          body as unknown as Together.Chat.CompletionCreateParamsNonStreaming,
+          options,
+        ),
+    });
 
-    if (!response?.choices?.[0]?.message?.content) {
-      return NextResponse.json({ suggestions: [] });
-    }
-
-    let json: unknown;
-    try {
-      json = JSON.parse(response.choices[0].message.content);
-    } catch {
-      console.warn("suggested-prompts unavailable: invalid-model-output");
+    if (!result.model) {
+      console.warn("suggested-prompts unavailable: all-models-failed", {
+        attempts: result.failedAttempts,
+      });
       return emptySuggestions();
     }
-    const result = suggestedPromptsSchema.safeParse(json);
 
-    if (result.error) {
-      console.warn("suggested-prompts unavailable: invalid-model-output");
-      return emptySuggestions();
+    if (result.failedAttempts.length > 0) {
+      console.warn("suggested-prompts fallback used", {
+        model: result.model,
+        attempts: result.failedAttempts,
+      });
     }
 
     return NextResponse.json(
-      { suggestions: result.data },
+      { suggestions: result.suggestions },
       {
         headers: {
           "Vercel-CDN-Cache-Control":

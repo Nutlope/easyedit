@@ -23,7 +23,9 @@ import {
 } from "../lib/suggested-prompts";
 
 const API_KEY = process.env.TOGETHER_API_KEY;
-const IMAGE_URL = process.env.IMAGE_URL || "https://picsum.photos/200/300";
+const IMAGE_URL =
+  process.env.IMAGE_URL ||
+  "https://napkinsdev.s3.us-east-1.amazonaws.com/next-s3-uploads/be191fc8-149b-43eb-b434-baf883986c2c/appointment-booking.png";
 const RUNS = Number(process.env.RUNS || 3);
 const TIMEOUT_MS = Number(process.env.TIMEOUT_MS || 90_000);
 
@@ -86,7 +88,11 @@ async function mapLimit<T, R>(
   return results;
 }
 
-async function probe(model: string, run: number, dataUrl: string): Promise<BenchResult> {
+async function probe(
+  model: string,
+  run: number,
+  dataUrl: string,
+): Promise<BenchResult> {
   const start = Date.now();
   const ac = new AbortController();
   const timeout = setTimeout(() => ac.abort(), TIMEOUT_MS);
@@ -95,17 +101,20 @@ async function probe(model: string, run: number, dataUrl: string): Promise<Bench
   let parsed: unknown = null;
   let usage: Usage | null = null;
   try {
-    const response = await fetch("https://api.together.xyz/v1/chat/completions", {
-      method: "POST",
-      signal: ac.signal,
-      headers: {
-        Authorization: `Bearer ${API_KEY}`,
-        "Content-Type": "application/json",
+    const response = await fetch(
+      "https://api.together.xyz/v1/chat/completions",
+      {
+        method: "POST",
+        signal: ac.signal,
+        headers: {
+          Authorization: `Bearer ${API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(
+          buildSuggestedPromptsRequestBody({ model, imageUrl: dataUrl }),
+        ),
       },
-      body: JSON.stringify(
-        buildSuggestedPromptsRequestBody({ model, imageUrl: dataUrl }),
-      ),
-    });
+    );
     status = response.status;
     const body = await response.json();
     usage = (body?.usage ?? null) as Usage | null;
@@ -150,8 +159,10 @@ async function fetchPrices(
     });
     if (!response.ok) return prices;
     const body = await response.json();
-    const catalog: { id: string; pricing?: { input?: number; output?: number } }[] =
-      Array.isArray(body) ? body : (body.data ?? []);
+    const catalog: {
+      id: string;
+      pricing?: { input?: number; output?: number };
+    }[] = Array.isArray(body) ? body : (body.data ?? []);
     for (const entry of catalog) {
       if (modelIds.includes(entry.id) && entry.pricing) {
         prices.set(entry.id, {
@@ -189,7 +200,9 @@ async function main() {
     console.log(`--- Run ${run}/${RUNS} ---`);
     // Each call is timed independently with a timeout. CONCURRENCY controls how
     // many fire at once (default: all concurrent; 1 = sequential).
-    const results = await mapLimit(models, CONCURRENCY, (m) => probe(m, run, dataUrl));
+    const results = await mapLimit(models, CONCURRENCY, (m) =>
+      probe(m, run, dataUrl),
+    );
     for (const r of results) {
       allResults.push(r);
       const mark = r.valid ? "✓" : "✗";
@@ -207,7 +220,9 @@ async function main() {
     const runs = allResults.filter((r) => r.model === model);
     const valid = runs.filter((r) => r.valid);
     const avg =
-      valid.length > 0 ? valid.reduce((sum, r) => sum + r.elapsed, 0) / valid.length : NaN;
+      valid.length > 0
+        ? valid.reduce((sum, r) => sum + r.elapsed, 0) / valid.length
+        : NaN;
     let cost: number | null = null;
     if (valid.length > 0 && prices.has(model)) {
       const { input, output } = prices.get(model)!;

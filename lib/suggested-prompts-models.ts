@@ -6,16 +6,24 @@
  * lib/model-config.ts for existing importers.
  */
 
-// Production default for suggested-prompts (vision + JSON-schema, reasoning
-// disabled). Qwen3.5-9B was 3/3 valid at ~1.27s in the compressed-image
-// benchmark and replaces gemma-3n-E4B-it ahead of its August 4 removal.
-// See scripts/bench-suggested-prompts.ts.
+// Production primary for suggested-prompts (vision + JSON-schema, reasoning
+// disabled). Qwen3.5-9B was 20/20 valid at ~0.68s under a strict 3-second
+// budget. Kimi K2.7 Code was also 20/20 valid at ~0.66s, so it is the diverse
+// fallback when Qwen stalls or returns invalid structured output. See
+// scripts/bench-suggested-prompts.ts and AUTORESEARCH-SUGGESTIONS.md.
 export const SUGGESTED_PROMPTS_MODEL = "Qwen/Qwen3.5-9B" as const;
+export const SUGGESTED_PROMPTS_FALLBACK_MODEL =
+  "moonshotai/Kimi-K2.7-Code" as const;
+
+export const SUGGESTED_PROMPTS_MODELS = [
+  SUGGESTED_PROMPTS_MODEL,
+  SUGGESTED_PROMPTS_FALLBACK_MODEL,
+] as const;
 
 // Trivial 1-token text completion used to check a user's API key (see
-// app/api/validate-key/route.ts). Reuses SUGGESTED_PROMPTS_MODEL so a single
-// model swap covers both the suggestion and key-validation paths; the model
-// is catalog-verified via CONFIGURED_MODELS.
+// app/api/validate-key/route.ts). Reuses the cheap primary; fallback behavior
+// belongs only to the user-facing suggestion path. The model is
+// catalog-verified via CONFIGURED_MODELS.
 export const API_KEY_VALIDATION_MODEL = SUGGESTED_PROMPTS_MODEL;
 
 /**
@@ -27,9 +35,9 @@ export const API_KEY_VALIDATION_MODEL = SUGGESTED_PROMPTS_MODEL;
 export const SUGGESTED_PROMPTS_BENCHMARK_MODELS = [
   "thinkingmachines/Inkling",
   "MiniMaxAI/MiniMax-M3",
-  "moonshotai/Kimi-K2.7-Code",
+  SUGGESTED_PROMPTS_FALLBACK_MODEL,
   "moonshotai/Kimi-K2.6",
   "google/gemma-4-31B-it",
   "pearl-ai/gemma-4-31b-it",
-  "Qwen/Qwen3.5-9B",
+  SUGGESTED_PROMPTS_MODEL,
 ] as const;

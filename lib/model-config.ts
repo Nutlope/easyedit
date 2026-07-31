@@ -16,6 +16,8 @@ export {
 } from "./image-edit-models";
 export {
   SUGGESTED_PROMPTS_MODEL,
+  SUGGESTED_PROMPTS_FALLBACK_MODEL,
+  SUGGESTED_PROMPTS_MODELS,
   API_KEY_VALIDATION_MODEL,
   SUGGESTED_PROMPTS_BENCHMARK_MODELS,
 } from "./suggested-prompts-models";
