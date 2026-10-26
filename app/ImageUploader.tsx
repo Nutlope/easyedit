@@ -1,6 +1,8 @@
+import { MAX_UPLOAD_BYTES, UPLOAD_CONTENT_TYPES } from "@/lib/upload-limits";
 import clsx from "clsx";
-import { getImageData, useS3Upload } from "next-s3-upload";
+import { getImageData, usePresignedUpload } from "next-s3-upload";
 import { useRef, useState, useTransition } from "react";
+import { toast } from "sonner";
 import Spinner from "./Spinner";
 
 export function ImageUploader({
@@ -18,24 +20,41 @@ export function ImageUploader({
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const { uploadToS3 } = useS3Upload();
+  const { uploadToS3 } = usePresignedUpload();
   const [pending, startTransition] = useTransition();
 
   async function handleUpload(file: File) {
+    if (
+      !Object.hasOwn(UPLOAD_CONTENT_TYPES, file.type) ||
+      file.size > MAX_UPLOAD_BYTES
+    ) {
+      toast.error(
+        "Please upload a JPEG, PNG, WebP, GIF, or AVIF image up to 10 MB.",
+      );
+      return;
+    }
+
     startTransition(async () => {
-      const [result, data] = await Promise.all([
-        uploadToS3(file),
-        getImageData(file),
-      ]);
+      try {
+        const [result, data] = await Promise.all([
+          uploadToS3(file, {
+            endpoint: { request: { body: { filesize: file.size } } },
+          }),
+          getImageData(file),
+        ]);
 
-      console.log(result.url);
-      console.log(data);
-
-      onUpload({
-        url: result.url,
-        width: data.width ?? 1024,
-        height: data.height ?? 768,
-      });
+        onUpload({
+          url: result.url,
+          width: data.width ?? 1024,
+          height: data.height ?? 768,
+        });
+      } catch (error) {
+        toast.error(
+          typeof error === "string"
+            ? error
+            : "Upload failed. Please try again.",
+        );
+      }
     });
   }
 
@@ -89,10 +108,8 @@ export function ImageUploader({
             <p className="mt-1 text-gray-500">or click to upload</p>
           </div>
 
-          <div className="pb-4 flex items-center justify-center flex-row gap-2">
-            <p className="text-sm text-gray-500">
-              Powered by
-            </p>
+          <div className="flex flex-row items-center justify-center gap-2 pb-4">
+            <p className="text-sm text-gray-500">Powered by</p>
             <img src="/poweredby.png" className="h-[20px]" />
           </div>
         </>
@@ -105,7 +122,7 @@ export function ImageUploader({
 
       <input
         type="file"
-        accept="image/*"
+        accept={Object.keys(UPLOAD_CONTENT_TYPES).join(",")}
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];

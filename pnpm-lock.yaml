@@ -8,6 +8,12 @@ importers:
 
   .:
     dependencies:
+      '@aws-sdk/client-s3':
+        specifier: 3.1154.0
+        version: 3.1154.0
+      '@aws-sdk/s3-request-presigner':
+        specifier: 3.1154.0
+        version: 3.1154.0
       '@upstash/ratelimit':
         specifier: ^2.0.5
         version: 2.0.5(@upstash/redis@1.35.1)
