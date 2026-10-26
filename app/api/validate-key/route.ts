@@ -2,14 +2,44 @@ import { logBraintrustFailure } from "@/lib/braintrust";
 import { getTogether } from "@/lib/get-together";
 import { API_KEY_VALIDATION_MODEL } from "@/lib/model-config";
 import { serializeBraintrustError } from "@/lib/trace-safety";
+import { enforceRateLimit } from "@/lib/rate-limiter";
 import { classifyTogetherError } from "@/lib/together-error";
+import { MAX_USER_API_KEY_LENGTH, parseUserAPIKey } from "@/lib/user-api-key";
 import { z } from "zod";
 
 const requestSchema = z.object({
-  apiKey: z.string().trim().min(20).max(512),
+  apiKey: z
+    .string()
+    .trim()
+    .min(20)
+    .max(MAX_USER_API_KEY_LENGTH)
+    .refine((value) => parseUserAPIKey(value).ok),
 });
 
 export async function POST(request: Request) {
+  const rateLimitResult = await enforceRateLimit("validateKey");
+  if (rateLimitResult.status === "limited") {
+    return jsonResponse(
+      {
+        success: false,
+        message: "Too many attempts. Please wait a few minutes and try again.",
+        code: "RATE_LIMITED",
+      },
+      429,
+    );
+  }
+  if (rateLimitResult.status === "unavailable") {
+    return jsonResponse(
+      {
+        success: false,
+        message:
+          "Key validation is temporarily unavailable. Please try again soon.",
+        code: "UNAVAILABLE",
+      },
+      503,
+    );
+  }
+
   try {
     const parsed = requestSchema.safeParse(await request.json());
 

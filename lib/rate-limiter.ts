@@ -2,94 +2,96 @@ import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { headers } from "next/headers";
 import "server-only";
+import { getClientIp } from "./client-ip";
+import {
+  checkRateLimits,
+  RATE_LIMIT_RULES,
+  resolveLimiterMode,
+  type LimitFn,
+  type RateLimitBucket,
+  type RateLimitDecision,
+} from "./rate-limit-policy";
 
-export type RateLimiter = Ratelimit | "unavailable" | undefined;
-export type RateLimitDecision =
-  | { status: "ok" }
-  | { status: "limited"; resetAt: number }
+export type { RateLimitBucket, RateLimitDecision } from "./rate-limit-policy";
+
+type LimiterState =
+  | { status: "ready"; limit: LimitFn }
+  | { status: "disabled" }
   | { status: "unavailable" };
 
-export function getRateLimiter() {
-  // Add rate limiting if Upstash API keys are set, otherwise skip
-  if (process.env.UPSTASH_REDIS_REST_URL) {
-    try {
-      return new Ratelimit({
-        redis: Redis.fromEnv(),
-        // Allow 5 requests per day
-        limiter: Ratelimit.fixedWindow(5, "1 d"),
-        analytics: true,
-        prefix: "easyedit",
-      });
-    } catch (error) {
-      console.error(
-        "Rate limiter initialization failed:",
-        error instanceof Error ? error.message : String(error),
-      );
-      return "unavailable";
-    }
+let limiterState: LimiterState | undefined;
+
+function getLimiterState(): LimiterState {
+  if (limiterState) return limiterState;
+
+  const mode = resolveLimiterMode();
+  if (mode === "disabled") return (limiterState = { status: "disabled" });
+  if (mode === "missing") {
+    console.error(
+      "Rate limiter is not configured: set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.",
+    );
+    return (limiterState = { status: "unavailable" });
   }
-  return undefined;
-}
 
-/**
- * Enforce the rate limit for a non-BYOK request, bypassing local traffic.
- *
- * Returns a limited decision when the caller is over quota (including the
- * server reset timestamp), an unavailable decision when configured Upstash
- * infrastructure fails, and ok otherwise. BYOK requests pass straight through
- * because they bill to the caller's own Together account. When no limiter is
- * configured (Upstash unset), everything is ok.
- *
- * Production keeps the limit; loopback hosts (localhost, 127.0.0.1, …) are
- * bypassed via `isLocalRequest` so local testing is never throttled. The optional
- * `keySuffix` namespaces the limit key per endpoint (e.g. `"-suggestions"`) so a
- * caller doesn't exhaust the edit quota with suggestion calls.
- */
-export async function enforceRateLimit(
-  ratelimit: RateLimiter,
-  userAPIKey: string | null,
-  keySuffix = "",
-): Promise<RateLimitDecision> {
-  if (userAPIKey || !ratelimit) return { status: "ok" };
-
-  if (await isLocalRequest()) return { status: "ok" };
-  if (ratelimit === "unavailable") return { status: "unavailable" };
-
-  const ipAddress = await getIPAddress();
-  const key = keySuffix ? `${ipAddress}-${keySuffix}` : ipAddress;
   try {
-    const { success, reset } = await ratelimit.limit(key);
-    return success ? { status: "ok" } : { status: "limited", resetAt: reset };
+    const redis = Redis.fromEnv();
+    const limiters = new Map<RateLimitBucket, Ratelimit>();
+    for (const [bucket, rule] of Object.entries(RATE_LIMIT_RULES) as [
+      RateLimitBucket,
+      (typeof RATE_LIMIT_RULES)[RateLimitBucket],
+    ][]) {
+      limiters.set(
+        bucket,
+        new Ratelimit({
+          redis,
+          limiter:
+            rule.kind === "fixed"
+              ? Ratelimit.fixedWindow(rule.limit, rule.window)
+              : Ratelimit.slidingWindow(rule.limit, rule.window),
+          analytics: true,
+          prefix: rule.prefix,
+          timeout: 0,
+        }),
+      );
+    }
+    return (limiterState = {
+      status: "ready",
+      limit: async (bucket, identifier) => {
+        const limiter = limiters.get(bucket);
+        if (!limiter) throw new Error(`Unknown rate limit bucket: ${bucket}`);
+        return limiter.limit(identifier);
+      },
+    });
   } catch (error) {
     console.error(
-      "Rate limiter request failed:",
+      "Rate limiter initialization failed:",
       error instanceof Error ? error.message : String(error),
     );
-    return { status: "unavailable" };
+    return (limiterState = { status: "unavailable" });
   }
-}
-async function getIPAddress() {
-  const FALLBACK_IP_ADDRESS = "0.0.0.0";
-  const headersList = await headers();
-  const forwardedFor = headersList.get("x-forwarded-for");
-
-  if (forwardedFor) {
-    return forwardedFor.split(",")[0] ?? FALLBACK_IP_ADDRESS;
-  }
-
-  return headersList.get("x-real-ip") ?? FALLBACK_IP_ADDRESS;
 }
 
 /**
- * Returns true when the incoming request is to a loopback address
- * (localhost, 127.0.0.1, 0.0.0.0, [::1]). We skip the rate limiter for these so
- * local testing never hits "No requests left". Production deployments serve a
- * real domain in the `host` header, so this never matches there — the limiter
- * stays fully enforced in production. Uses `host` (not `x-forwarded-host`, which
- * a client could spoof) to keep the bypass safe.
+ * Enforces the given per-IP buckets in order. Fails closed when Upstash is
+ * missing in production or errors. Loopback hosts are only bypassed outside
+ * production so local testing is never throttled.
  */
-async function isLocalRequest(): Promise<boolean> {
+export async function enforceRateLimit(
+  ...buckets: RateLimitBucket[]
+): Promise<RateLimitDecision> {
+  const state = getLimiterState();
+  if (state.status === "disabled") return { status: "ok" };
+  if (state.status === "unavailable") return { status: "unavailable" };
+
   const headersList = await headers();
+  if (process.env.NODE_ENV !== "production" && isLocalHost(headersList)) {
+    return { status: "ok" };
+  }
+
+  return checkRateLimits(state.limit, buckets, getClientIp(headersList));
+}
+
+function isLocalHost(headersList: Headers) {
   const host = headersList.get("host") ?? "";
   return (
     host.startsWith("localhost") ||

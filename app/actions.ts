@@ -22,7 +22,7 @@ import {
   IMAGE_EDIT_MODELS,
 } from "@/lib/model-config";
 import { buildQuotaRejectionTrace } from "@/lib/rate-limit-tracing";
-import { enforceRateLimit, getRateLimiter } from "@/lib/rate-limiter";
+import { enforceRateLimit, type RateLimitDecision } from "@/lib/rate-limiter";
 import {
   classifyTogetherError,
   isExpectedTogetherRejection,
@@ -32,16 +32,15 @@ import {
   extractDataUrlBase64,
   serializeBraintrustError,
 } from "@/lib/trace-safety";
+import { parseUserAPIKey } from "@/lib/user-api-key";
 import { z } from "zod";
-
-const ratelimit = getRateLimiter();
 
 const schema = z.object({
   imageUrl: z.string().url().max(4_096),
   prompt: z.string().trim().min(1).max(2_000),
   width: z.number().finite().positive().max(100_000),
   height: z.number().finite().positive().max(100_000),
-  userAPIKey: z.string().trim().min(1).max(512).nullable(),
+  userAPIKey: z.string().max(4_096).nullable(),
   model: z.enum(IMAGE_EDIT_MODELS).default("black-forest-labs/FLUX.2-flex"),
 });
 
@@ -72,9 +71,34 @@ export async function generateImage(
     };
   }
 
-  const { imageUrl, prompt, width, height, userAPIKey, model } = input;
+  const { imageUrl, prompt, width, height, model } = input;
 
-  const rateLimitResult = await enforceRateLimit(ratelimit, userAPIKey);
+  const parsedKey = parseUserAPIKey(input.userAPIKey);
+  if (!parsedKey.ok) {
+    return {
+      success: false,
+      error: "Your Together API key looks invalid. Please update it.",
+    };
+  }
+  const userAPIKey = parsedKey.key;
+
+  const burstResult = await enforceRateLimit("imageEditBurst");
+  if (burstResult.status === "limited") {
+    return {
+      success: false,
+      error: "Too many requests. Please wait a minute and try again.",
+    };
+  }
+  if (burstResult.status === "unavailable") {
+    return {
+      success: false,
+      error: "Image editing is temporarily unavailable. Please try again soon.",
+    };
+  }
+
+  const rateLimitResult: RateLimitDecision = userAPIKey
+    ? { status: "ok" }
+    : await enforceRateLimit("imageEditQuota");
   if (rateLimitResult.status === "limited") {
     await logBraintrustOutcome({
       name: "easyedit.rate-limit",
