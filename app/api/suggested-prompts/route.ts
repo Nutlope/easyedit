@@ -1,7 +1,7 @@
 import { logBraintrustOutcome } from "@/lib/braintrust";
 import { getTogether } from "@/lib/get-together";
 import { buildQuotaRejectionTrace } from "@/lib/rate-limit-tracing";
-import { enforceRateLimit, getRateLimiter } from "@/lib/rate-limiter";
+import { enforceRateLimit, type RateLimitDecision } from "@/lib/rate-limiter";
 import { fetchAndCompressImage } from "@/lib/suggested-prompts";
 import { requestSuggestedPrompts } from "@/lib/suggested-prompts-request";
 import { RemoteImageError } from "@/lib/remote-image";
@@ -10,31 +10,43 @@ import {
   serializeBraintrustError,
 } from "@/lib/trace-safety";
 import { classifyTogetherError } from "@/lib/together-error";
+import { parseUserAPIKey } from "@/lib/user-api-key";
 import type Together from "together-ai";
 import { NextRequest, NextResponse } from "next/server";
 
 export const revalidate = 86400;
 
-const ratelimit = getRateLimiter();
-
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const imageUrl = searchParams.get("imageUrl");
 
-  if (!imageUrl) {
+  if (!imageUrl || imageUrl.length > 4_096) {
     return NextResponse.json(
-      { error: "imageUrl query parameter is required" },
-      { status: 400 },
+      { error: "A valid imageUrl query parameter is required" },
+      { status: 400, headers: { "Cache-Control": "no-store" } },
     );
   }
 
-  const userAPIKey = request.headers.get("x-api-key") || null;
+  const parsedKey = parseUserAPIKey(request.headers.get("x-api-key"));
+  if (!parsedKey.ok) {
+    return NextResponse.json(
+      { error: "Invalid API key", suggestions: [] },
+      { status: 400, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+  const userAPIKey = parsedKey.key;
 
-  const rateLimitResult = await enforceRateLimit(
-    ratelimit,
-    userAPIKey,
-    "suggestions",
-  );
+  const burstResult = await enforceRateLimit("suggestionsBurst");
+  if (burstResult.status === "limited") {
+    return rateLimitedResponse(burstResult.resetAt);
+  }
+  if (burstResult.status === "unavailable") {
+    return unavailableResponse();
+  }
+
+  const rateLimitResult: RateLimitDecision = userAPIKey
+    ? { status: "ok" }
+    : await enforceRateLimit("suggestionsQuota");
   if (rateLimitResult.status === "limited") {
     await logBraintrustOutcome({
       name: "easyedit.rate-limit",
@@ -45,30 +57,10 @@ export async function GET(request: NextRequest) {
         resetAt: rateLimitResult.resetAt,
       }),
     });
-    const retryAfterSeconds = Math.max(
-      1,
-      Math.ceil((rateLimitResult.resetAt - Date.now()) / 1_000),
-    );
-    return NextResponse.json(
-      { suggestions: [] },
-      {
-        status: 429,
-        headers: {
-          "Cache-Control": "no-store",
-          "Retry-After": String(retryAfterSeconds),
-          "X-RateLimit-Reset": String(rateLimitResult.resetAt),
-        },
-      },
-    );
+    return rateLimitedResponse(rateLimitResult.resetAt);
   }
   if (rateLimitResult.status === "unavailable") {
-    return NextResponse.json(
-      { suggestions: [] },
-      {
-        status: 503,
-        headers: { "Cache-Control": "no-store" },
-      },
-    );
+    return unavailableResponse();
   }
 
   const together = getTogether(userAPIKey);
@@ -130,6 +122,34 @@ export async function GET(request: NextRequest) {
     );
     return emptySuggestions();
   }
+}
+
+function rateLimitedResponse(resetAt: number) {
+  const retryAfterSeconds = Math.max(
+    1,
+    Math.ceil((resetAt - Date.now()) / 1_000),
+  );
+  return NextResponse.json(
+    { suggestions: [] },
+    {
+      status: 429,
+      headers: {
+        "Cache-Control": "no-store",
+        "Retry-After": String(retryAfterSeconds),
+        "X-RateLimit-Reset": String(resetAt),
+      },
+    },
+  );
+}
+
+function unavailableResponse() {
+  return NextResponse.json(
+    { suggestions: [] },
+    {
+      status: 503,
+      headers: { "Cache-Control": "no-store" },
+    },
+  );
 }
 
 function emptySuggestions() {
